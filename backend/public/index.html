@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Dashboard - Local Weather</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="lib/chart.min.js"></script>
+    <script src="lib/lucide.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>BME280 Sensores</h1>
+                <p style="color: var(--text-muted)">Monitoreo BME280 en tiempo real</p>
+            </div>
+            <div class="status-badge">
+                <span id="status-dot" class="dot"></span>
+                <span id="status-text">Buscando sensor...</span>
+            </div>
+        </header>
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-label">
+                    <i data-lucide="thermometer" style="color: #f87171"></i> Temperatura
+                </div>
+                <div class="card-value">
+                    <span id="temp-val">--</span><span class="card-unit">°C</span>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-label">
+                    <i data-lucide="droplets" style="color: #60a5fa"></i> Humedad
+                </div>
+                <div class="card-value">
+                    <span id="hum-val">--</span><span class="card-unit">%</span>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-label">
+                    <i data-lucide="gauge" style="color: #34d399"></i> Presión
+                </div>
+                <div class="card-value">
+                    <span id="pres-val">--</span><span class="card-unit">hPa</span>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-label">
+                    <i data-lucide="flame" style="color: #fbbf24"></i> Sensación
+                </div>
+                <div class="card-value">
+                    <span id="hi-val">--</span><span class="card-unit">°C</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-section" id="chart-container">
+            <div id="loading-overlay">
+                <i data-lucide="refresh-cw" class="animate-spin"></i>
+            </div>
+            <div class="chart-header">
+                <span>Historial de Datos</span>
+                <div class="filters">
+                    <input type="date" id="start-date">
+                    <input type="date" id="end-date">
+                    <button class="btn-filter" onclick="applyFilters()">Filtrar</button>
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.1)" onclick="resetFilters()">Reset</button>
+                </div>
+            </div>
+            <canvas id="mainChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        let chart;
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        function initChart() {
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Temperatura (°C)',
+                        yAxisID: 'yTemp',
+                        data: [],
+                        borderColor: '#818cf8',
+                        backgroundColor: 'rgba(129, 140, 248, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 2
+                    }, {
+                        label: 'Humedad (%)',
+                        yAxisID: 'yHum',
+                        data: [],
+                        borderColor: '#f472b6',
+                        backgroundColor: 'transparent',
+                        fill: false,
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointRadius: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index',
+                    },
+                    plugins: {
+                        legend: { 
+                            display: true,
+                            position: 'bottom',
+                            labels: { 
+                                color: '#94a3b8', 
+                                font: { family: 'Outfit', size: 12 },
+                                padding: 20,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                            titleColor: '#f8fafc',
+                            bodyColor: '#f8fafc',
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: true,
+                            titleFont: { size: 14 },
+                            bodyFont: { size: 14 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { 
+                                color: '#94a3b8', 
+                                maxRotation: 0, 
+                                minRotation: 0,
+                                font: { size: 11 }
+                            }
+                        },
+                        yTemp: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            suggestedMin: 0,
+                            suggestedMax: 55,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { 
+                                color: '#818cf8', 
+                                font: { size: 11 },
+                                mirror: true, // Ticks adentro para ganar ancho
+                                z: 10
+                            }
+                        },
+                        yHum: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            suggestedMin: 0,
+                            suggestedMax: 100,
+                            grid: { display: false },
+                            ticks: { 
+                                color: '#f472b6', 
+                                font: { size: 11 },
+                                mirror: true, // Ticks adentro para ganar ancho
+                                z: 10
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function fetchReadings(startDate = null, endDate = null) {
+            loadingOverlay.style.display = 'flex';
+            try {
+                let url = '/api/readings';
+                if (startDate && endDate) {
+                    url += `?startDate=${startDate}&endDate=${endDate}`;
+                } else {
+                    url += '?limit=144'; // Last 24h approximation if sending every 10min
+                }
+
+                const response = await fetch(url);
+                const data = await response.json();
+                const reversed = data.reverse();
+
+                chart.data.labels = reversed.map(r => {
+                    const date = new Date(r.created_at);
+                    return startDate ? date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+                                     : date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                });
+                chart.data.datasets[0].data = reversed.map(r => r.temperature);
+                chart.data.datasets[1].data = reversed.map(r => r.humidity);
+                chart.update();
+
+                // Update cards only with the absolute latest from a separate call
+                if (!startDate) {
+                    updateLatestCards();
+                }
+            } catch (err) {
+                console.error('Error fetching data:', err);
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        }
+
+        async function updateLatestCards() {
+            const response = await fetch('/api/readings/latest');
+            const data = await response.json();
+
+            if (data.temperature) {
+                document.getElementById('temp-val').innerText = data.temperature.toFixed(1);
+                document.getElementById('hum-val').innerText = data.humidity.toFixed(1);
+                document.getElementById('pres-val').innerText = data.pressure.toFixed(0);
+                document.getElementById('hi-val').innerText = data.heat_index.toFixed(1);
+
+                const lastRead = new Date(data.created_at).getTime();
+                const now = new Date().getTime();
+                const isOnline = (now - lastRead) < 600000;
+                
+                const dot = document.getElementById('status-dot');
+                const text = document.getElementById('status-text');
+                
+                if (isOnline) {
+                    dot.classList.add('online');
+                    text.innerText = 'Sensor Online';
+                } else {
+                    dot.classList.remove('online');
+                    text.innerText = 'Sensor Offline';
+                }
+            }
+        }
+
+        function applyFilters() {
+            const start = document.getElementById('start-date').value;
+            const end = document.getElementById('end-date').value;
+            if (start && end) {
+                // Set end to end of day
+                const endDateTime = end + 'T23:59:59';
+                fetchReadings(start, endDateTime);
+            } else {
+                alert('Por favor selecciona ambas fechas');
+            }
+        }
+
+        function resetFilters() {
+            document.getElementById('start-date').value = '';
+            document.getElementById('end-date').value = '';
+            fetchReadings();
+        }
+
+        initChart();
+        fetchReadings();
+        setInterval(updateLatestCards, 30000);
+    </script>
+</body>
+</html>
