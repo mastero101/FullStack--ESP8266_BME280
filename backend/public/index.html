@@ -7,51 +7,404 @@
     <link rel="stylesheet" href="style.css">
     <script src="lib/chart.min.js"></script>
     <script src="lib/lucide.min.js"></script>
+    <script src="lib/socket.io.min.js"></script>
 </head>
+
 <body>
+    <!-- Modal de Ajustes (Fuera para evitar clipping) -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Ajustes de Alerta</h2>
+                <button class="btn-icon" onclick="toggleSettings()" style="padding: 0.4rem;"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Umbral de Temperatura Crítica (°C)</label>
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <input type="number" id="threshold-input" value="40" step="0.5">
+                        <span>°C</span>
+                    </div>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                        La tarjeta de temperatura pulsará en rojo al superar este valor.
+                    </p>
+                </div>
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label>Umbral de Humedad Crítica (%)</label>
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <input type="number" id="hum-threshold-input" value="80" step="1">
+                        <span>%</span>
+                    </div>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                        La tarjeta de humedad pulsará en azul al superar este valor.
+                    </p>
+                </div>
+                <div class="form-group" style="margin-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;">
+                    <label>Notificaciones de Escritorio</label>
+                    <div id="notif-status-container" style="display: flex; flex-direction: column; gap: 0.8rem;">
+                        <button id="btn-notif-request" class="btn-secondary" style="width: 100%; justify-content: center;" onclick="requestNotificationPermission()">
+                            <i data-lucide="bell" style="width: 18px;"></i> Activar Notificaciones
+                        </button>
+                        <p id="notif-status-text" style="font-size: 0.7rem; color: var(--text-muted); text-align: center;">
+                            Requerido para alertas en segundo plano.
+                        </p>
+                    </div>
+                </div>
+                <button class="btn-filter" style="width: 100%; margin-top: 2rem; padding: 1rem;" onclick="saveSettings()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Estadísticas -->
+    <div id="stats-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Análisis Estadístico</h2>
+                <button class="btn-icon" onclick="toggleStats()" style="padding: 0.4rem;"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="stats-tabs">
+                    <button class="tab-btn" onclick="switchStatsTab('1h')">1h</button>
+                    <button class="tab-btn active" onclick="switchStatsTab('24h')">24h</button>
+                    <button class="tab-btn" onclick="switchStatsTab('7d')">7d</button>
+                    <button class="tab-btn" onclick="switchStatsTab('global')">Total</button>
+                    <button class="tab-btn" onclick="switchStatsTab('custom')">Rango</button>
+                </div>
+                <div id="stats-content-1h" class="stats-grid" style="display: none;">
+                    <div class="stat-box">
+                        <label>Temperatura</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-1h-min-temp">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-1h-max-temp">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-1h-avg-temp">--</b></div>
+                        <div class="stat-row"><span>Mediana:</span> <b id="stat-1h-med-temp">--</b></div>
+                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-1h-rng-temp">--</b></div>
+                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-1h-std-temp">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Humedad</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-1h-min-hum">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-1h-max-hum">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-1h-avg-hum">--</b></div>
+                        <div class="stat-row"><span>Mediana:</span> <b id="stat-1h-med-hum">--</b></div>
+                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-1h-rng-hum">--</b></div>
+                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-1h-std-hum">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Presión</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-1h-min-pres">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-1h-max-pres">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-1h-avg-pres">--</b></div>
+                        <div class="stat-row"><span>Mediana:</span> <b id="stat-1h-med-pres">--</b></div>
+                        <div class="stat-row"><span>Variación:</span> <b id="stat-1h-rng-pres">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Sensación (HI)</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-1h-min-hi">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-1h-max-hi">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-1h-avg-hi">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Punto de Rocío</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-1h-min-dp">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-1h-max-dp">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-1h-avg-dp">--</b></div>
+                        <div class="stat-row" style="margin-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
+                            <span>Muestras:</span> <b id="stat-1h-count">--</b>
+                        </div>
+                    </div>
+                </div>
+                <div id="stats-content-24h" class="stats-grid">
+                    <div class="stat-box">
+                        <label>Temperatura</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-24h-min-temp">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-24h-max-temp">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-24h-avg-temp">--</b></div>
+                        <div class="stat-row"><span>Mediana:</span> <b id="stat-24h-med-temp">--</b></div>
+                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-24h-rng-temp">--</b></div>
+                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-24h-std-temp">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Humedad</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-24h-min-hum">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-24h-max-hum">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-24h-avg-hum">--</b></div>
+                        <div class="stat-row"><span>Mediana:</span> <b id="stat-24h-med-hum">--</b></div>
+                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-24h-rng-hum">--</b></div>
+                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-24h-std-hum">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Presión</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-24h-min-pres">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-24h-max-pres">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-24h-avg-pres">--</b></div>
+                        <div class="stat-row"><span>Mediana:</span> <b id="stat-24h-med-pres">--</b></div>
+                        <div class="stat-row"><span>Variación:</span> <b id="stat-24h-rng-pres">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Sensación (HI)</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-24h-min-hi">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-24h-max-hi">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-24h-avg-hi">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Punto de Rocío</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-24h-min-dp">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-24h-max-dp">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-24h-avg-dp">--</b></div>
+                        <div class="stat-row" style="margin-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
+                            <span>Muestras:</span> <b id="stat-24h-count">--</b>
+                        </div>
+                    </div>
+                </div>
+                <div id="stats-content-7d" class="stats-grid" style="display: none;">
+                    <div class="stat-box">
+                        <label>Temperatura</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-7d-min-temp">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-7d-max-temp">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-7d-avg-temp">--</b></div>
+                        <div class="stat-row"><span>Mediana:</span> <b id="stat-7d-med-temp">--</b></div>
+                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-7d-rng-temp">--</b></div>
+                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-7d-std-temp">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Humedad</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-7d-min-hum">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-7d-max-hum">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-7d-avg-hum">--</b></div>
+                        <div class="stat-row"><span>Mediana:</span> <b id="stat-7d-med-hum">--</b></div>
+                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-7d-rng-hum">--</b></div>
+                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-7d-std-hum">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Presión</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-7d-min-pres">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-7d-max-pres">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-7d-avg-pres">--</b></div>
+                        <div class="stat-row"><span>Mediana:</span> <b id="stat-7d-med-pres">--</b></div>
+                        <div class="stat-row"><span>Variación:</span> <b id="stat-7d-rng-pres">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Sensación (HI)</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-7d-min-hi">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-7d-max-hi">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-7d-avg-hi">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Punto de Rocío</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-7d-min-dp">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-7d-max-dp">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-7d-avg-dp">--</b></div>
+                        <div class="stat-row" style="margin-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
+                            <span>Muestras:</span> <b id="stat-7d-count">--</b>
+                        </div>
+                    </div>
+                </div>
+                <div id="stats-content-global" class="stats-grid" style="display: none;">
+                    <div class="stat-box">
+                        <label>Temperatura</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-global-min-temp">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-global-max-temp">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-global-avg-temp">--</b></div>
+                        <div class="stat-row"><span>Mediana:</span> <b id="stat-global-med-temp">--</b></div>
+                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-global-rng-temp">--</b></div>
+                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-global-std-temp">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Humedad</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-global-min-hum">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-global-max-hum">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-global-avg-hum">--</b></div>
+                        <div class="stat-row"><span>Mediana:</span> <b id="stat-global-med-hum">--</b></div>
+                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-global-rng-hum">--</b></div>
+                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-global-std-hum">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Presión</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-global-min-pres">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-global-max-pres">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-global-avg-pres">--</b></div>
+                        <div class="stat-row"><span>Mediana:</span> <b id="stat-global-med-pres">--</b></div>
+                        <div class="stat-row"><span>Variación:</span> <b id="stat-global-rng-pres">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Sensación (HI)</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-global-min-hi">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-global-max-hi">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-global-avg-hi">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Punto de Rocío</label>
+                        <div class="stat-row"><span>Mín:</span> <b id="stat-global-min-dp">--</b></div>
+                        <div class="stat-row"><span>Máx:</span> <b id="stat-global-max-dp">--</b></div>
+                        <div class="stat-row"><span>Prom:</span> <b id="stat-global-avg-dp">--</b></div>
+                        <div class="stat-row" style="margin-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
+                            <span>Muestras:</span> <b id="stat-global-count">--</b>
+                        </div>
+                    </div>
+                </div>
+                <div id="stats-content-custom" class="stats-container" style="display: none;">
+                    <div class="stats-range-picker">
+                        <div style="flex: 1;">
+                            <label style="display: block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">Inicio</label>
+                            <input type="date" id="stats-start-date" class="stats-input" onchange="document.getElementById('stats-end-date').min = this.value">
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="display: block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">Fin</label>
+                            <input type="date" id="stats-end-date" class="stats-input">
+                        </div>
+                        <button class="btn-filter" onclick="updateStats(true)">
+                            <i data-lucide="play" style="width: 16px; height: 16px;"></i>
+                        </button>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <label>Temperatura</label>
+                            <div class="stat-row"><span>Mín:</span> <b id="stat-range-min-temp">--</b></div>
+                            <div class="stat-row"><span>Máx:</span> <b id="stat-range-max-temp">--</b></div>
+                            <div class="stat-row"><span>Prom:</span> <b id="stat-range-avg-temp">--</b></div>
+                            <div class="stat-row"><span>Mediana:</span> <b id="stat-range-med-temp">--</b></div>
+                            <div class="stat-row"><span>Amplitud:</span> <b id="stat-range-rng-temp">--</b></div>
+                            <div class="stat-row"><span>Estabilidad:</span> <b id="stat-range-std-temp">--</b></div>
+                        </div>
+                        <div class="stat-box">
+                            <label>Humedad</label>
+                            <div class="stat-row"><span>Mín:</span> <b id="stat-range-min-hum">--</b></div>
+                            <div class="stat-row"><span>Máx:</span> <b id="stat-range-max-hum">--</b></div>
+                            <div class="stat-row"><span>Prom:</span> <b id="stat-range-avg-hum">--</b></div>
+                            <div class="stat-row"><span>Mediana:</span> <b id="stat-range-med-hum">--</b></div>
+                            <div class="stat-row"><span>Amplitud:</span> <b id="stat-range-rng-hum">--</b></div>
+                            <div class="stat-row"><span>Estabilidad:</span> <b id="stat-range-std-hum">--</b></div>
+                        </div>
+                        <div class="stat-box">
+                            <label>Presión</label>
+                            <div class="stat-row"><span>Mín:</span> <b id="stat-range-min-pres">--</b></div>
+                            <div class="stat-row"><span>Máx:</span> <b id="stat-range-max-pres">--</b></div>
+                            <div class="stat-row"><span>Prom:</span> <b id="stat-range-avg-pres">--</b></div>
+                            <div class="stat-row"><span>Mediana:</span> <b id="stat-range-med-pres">--</b></div>
+                            <div class="stat-row"><span>Variación:</span> <b id="stat-range-rng-pres">--</b></div>
+                        </div>
+                        <div class="stat-box">
+                            <label>Sensación (HI)</label>
+                            <div class="stat-row"><span>Mín:</span> <b id="stat-range-min-hi">--</b></div>
+                            <div class="stat-row"><span>Máx:</span> <b id="stat-range-max-hi">--</b></div>
+                            <div class="stat-row"><span>Prom:</span> <b id="stat-range-avg-hi">--</b></div>
+                        </div>
+                        <div class="stat-box">
+                            <label>Punto de Rocío</label>
+                            <div class="stat-row"><span>Mín:</span> <b id="stat-range-min-dp">--</b></div>
+                            <div class="stat-row"><span>Máx:</span> <b id="stat-range-max-dp">--</b></div>
+                            <div class="stat-row"><span>Prom:</span> <b id="stat-range-avg-dp">--</b></div>
+                            <div class="stat-row" style="margin-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
+                                <span>Muestras:</span> <b id="stat-range-count">--</b>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1.5rem; text-align: center;">
+                    * Datos calculados en base a registros válidos en la base de datos.
+                </p>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <div>
                 <h1>BME280 Sensores</h1>
                 <p style="color: var(--text-muted)">Monitoreo BME280 en tiempo real</p>
             </div>
-            <div class="status-badge">
-                <span id="status-dot" class="dot"></span>
-                <span id="status-text">Buscando sensor...</span>
+            <div class="header-actions" style="display: flex; align-items: center; gap: 1rem;">
+                <div class="status-badge" style="flex-direction: column; align-items: flex-start; gap: 0.1rem; padding: 0.5rem 1.2rem; border-radius: 12px; min-width: 140px;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <span id="status-dot" class="dot"></span>
+                        <span id="status-text" style="font-weight: 700;">Buscando...</span>
+                    </div>
+                    <span id="last-seen" style="font-size: 0.65rem; color: var(--text-muted); margin-left: 1.1rem;">Visto: --</span>
+                </div>
+                <button class="btn-icon" onclick="window.location.href='/kiosk'" title="Modo Quiosco">
+                    <i data-lucide="layout-dashboard"></i>
+                </button>
+                <button class="btn-icon" onclick="toggleStats()" title="Estadísticas">
+                    <i data-lucide="bar-chart-2"></i>
+                </button>
+                <button class="btn-icon" onclick="toggleSettings()" title="Ajustes">
+                    <i data-lucide="settings"></i>
+                </button>
             </div>
         </header>
 
         <div class="grid">
-            <div class="card">
+            <div class="card" id="temp-card">
                 <div class="card-label">
                     <i data-lucide="thermometer" style="color: #f87171"></i> Temperatura
                 </div>
-                <div class="card-value">
-                    <span id="temp-val">--</span><span class="card-unit">°C</span>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="temp-val">--</span><span class="card-unit">°C</span>
+                    </div>
+                    <span id="temp-trend" class="trend-badge"></span>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item">Min: <b id="temp-min">--</b></div>
+                    <div class="stat-item">Max: <b id="temp-max">--</b></div>
                 </div>
             </div>
-            <div class="card">
+            <div class="card" id="hum-card">
                 <div class="card-label">
                     <i data-lucide="droplets" style="color: #60a5fa"></i> Humedad
                 </div>
-                <div class="card-value">
-                    <span id="hum-val">--</span><span class="card-unit">%</span>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="hum-val">--</span><span class="card-unit">%</span>
+                    </div>
+                    <span id="hum-trend" class="trend-badge"></span>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item">Min: <b id="hum-min">--</b></div>
+                    <div class="stat-item">Max: <b id="hum-max">--</b></div>
                 </div>
             </div>
             <div class="card">
                 <div class="card-label">
                     <i data-lucide="gauge" style="color: #34d399"></i> Presión
                 </div>
-                <div class="card-value">
-                    <span id="pres-val">--</span><span class="card-unit">hPa</span>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="pres-val">--</span><span class="card-unit">hPa</span>
+                    </div>
+                    <span id="pres-trend" class="trend-badge"></span>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item">Min: <b id="pres-min">--</b></div>
+                    <div class="stat-item">Max: <b id="pres-max">--</b></div>
                 </div>
             </div>
             <div class="card">
                 <div class="card-label">
                     <i data-lucide="flame" style="color: #fbbf24"></i> Sensación
                 </div>
-                <div class="card-value">
-                    <span id="hi-val">--</span><span class="card-unit">°C</span>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="hi-val">--</span><span class="card-unit">°C</span>
+                    </div>
+                </div>
+                <div class="sub-stats" style="opacity: 0; pointer-events: none;">
+                    <div>&nbsp;</div>
+                </div>
+            </div>
+            <div class="card" id="dp-card">
+                <div class="card-label">
+                    <i data-lucide="droplet" style="color: #6366f1"></i> Punto Rocío
+                </div>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="dp-val">--</span><span class="card-unit">°C</span>
+                    </div>
+                    <span id="dp-trend" class="trend-badge"></span>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item">Min: <b id="dp-min">--</b></div>
+                    <div class="stat-item">Max: <b id="dp-max">--</b></div>
                 </div>
             </div>
         </div>
@@ -61,15 +414,36 @@
                 <i data-lucide="refresh-cw" class="animate-spin"></i>
             </div>
             <div class="chart-header">
-                <span>Historial de Datos</span>
-                <div class="filters">
-                    <input type="date" id="start-date">
-                    <input type="date" id="end-date">
-                    <button class="btn-filter" onclick="applyFilters()">Filtrar</button>
-                    <button class="btn-filter" style="background: rgba(255,255,255,0.1)" onclick="resetFilters()">Reset</button>
+                <div class="chart-title-group">
+                    <span>Historial de Datos</span>
+                    <div class="quick-filters" style="margin-bottom: 0;">
+                        <button class="btn-quick" onclick="setQuickRange('hour')">1h</button>
+                        <button class="btn-quick active" onclick="setQuickRange('day')">24h</button>
+                        <button class="btn-quick" onclick="setQuickRange('week')">7d</button>
+                    </div>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 1rem;">
+                    <div class="toggle-legend" id="chart-legend">
+                        <div class="legend-item active" onclick="toggleDataset(0, this)" style="--color: #f43f5e">Temperatura</div>
+                        <div class="legend-item active" onclick="toggleDataset(1, this)" style="--color: #6366f1">Humedad</div>
+                        <div class="legend-item active" onclick="toggleDataset(2, this)" style="--color: #10b981">Presión</div>
+                    </div>
+                    
+                    <div class="filters">
+                        <input type="date" id="start-date" onchange="document.getElementById('end-date').min = this.value">
+                        <input type="date" id="end-date">
+                        <button class="btn-filter" onclick="applyFilters()">Filtrar</button>
+                        <button class="btn-filter" style="background: rgba(255,255,255,0.05); box-shadow: none; border: 1px solid rgba(255,255,255,0.1);" onclick="resetFilters()">Reset</button>
+                        <button class="btn-secondary" onclick="exportToCSV()">
+                            <i data-lucide="download" style="width: 16px;"></i> CSV
+                        </button>
+                    </div>
                 </div>
             </div>
-            <canvas id="mainChart"></canvas>
+            <div style="height: 350px; width: 100%;">
+                <canvas id="mainChart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -78,6 +452,9 @@
         lucide.createIcons();
 
         let chart;
+        let globalLastReadingTime = null;
+        let lastNotifiedTime = { temp: 0, hum: 0 };
+        const NOTIF_COOLDOWN = 10 * 60 * 1000; // 10 Minutos entre notificaciones del mismo tipo
         const ctx = document.getElementById('mainChart').getContext('2d');
         const loadingOverlay = document.getElementById('loading-overlay');
 
@@ -90,22 +467,37 @@
                         label: 'Temperatura (°C)',
                         yAxisID: 'yTemp',
                         data: [],
-                        borderColor: '#818cf8',
-                        backgroundColor: 'rgba(129, 140, 248, 0.1)',
+                        borderColor: '#f43f5e',
+                        backgroundColor: 'transparent',
                         fill: true,
                         tension: 0.4,
                         borderWidth: 3,
-                        pointRadius: 2
+                        pointRadius: 3,
+                        pointBackgroundColor: '#f43f5e',
+                        pointBorderColor: 'rgba(255,255,255,0.1)',
+                        pointHoverRadius: 6
                     }, {
                         label: 'Humedad (%)',
                         yAxisID: 'yHum',
                         data: [],
-                        borderColor: '#f472b6',
+                        borderColor: '#6366f1',
                         backgroundColor: 'transparent',
                         fill: false,
                         tension: 0.4,
                         borderWidth: 2,
-                        pointRadius: 2
+                        pointRadius: 0,
+                        borderDash: [5, 5]
+                    }, {
+                        label: 'Presión (hPa)',
+                        yAxisID: 'yPres',
+                        data: [],
+                        borderColor: '#10b981',
+                        backgroundColor: 'transparent',
+                        fill: false,
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        borderDash: [3, 3]
                     }]
                 },
                 options: {
@@ -117,14 +509,7 @@
                     },
                     plugins: {
                         legend: { 
-                            display: true,
-                            position: 'bottom',
-                            labels: { 
-                                color: '#94a3b8', 
-                                font: { family: 'Outfit', size: 12 },
-                                padding: 20,
-                                usePointStyle: true
-                            }
+                            display: false // Usaremos nuestra propia leyenda interactiva
                         },
                         tooltip: {
                             backgroundColor: 'rgba(30, 41, 59, 0.9)',
@@ -156,7 +541,7 @@
                             suggestedMax: 55,
                             grid: { color: 'rgba(255,255,255,0.05)' },
                             ticks: { 
-                                color: '#818cf8', 
+                                color: '#f43f5e', 
                                 font: { size: 11 },
                                 mirror: true, // Ticks adentro para ganar ancho
                                 z: 10
@@ -170,44 +555,90 @@
                             suggestedMax: 100,
                             grid: { display: false },
                             ticks: { 
-                                color: '#f472b6', 
+                                color: '#6366f1', 
                                 font: { size: 11 },
-                                mirror: true, // Ticks adentro para ganar ancho
+                                mirror: true,
                                 z: 10
                             }
+                        },
+                        yPres: {
+                            type: 'linear',
+                            display: false,
+                            position: 'right',
+                            suggestedMin: 900,
+                            suggestedMax: 1100,
                         }
                     }
                 }
             });
         }
 
-        async function fetchReadings(startDate = null, endDate = null) {
+        function toggleDataset(index, element) {
+            const isVisible = chart.isDatasetVisible(index);
+            const axisIds = ['yTemp', 'yHum', 'yPres'];
+            const targetAxis = axisIds[index];
+
+            if (isVisible) {
+                chart.hide(index);
+                element.classList.remove('active');
+                // Ocultar eje si no es presíon (que ya está oculto)
+                if (chart.options.scales[targetAxis]) {
+                    chart.options.scales[targetAxis].display = false;
+                }
+            } else {
+                chart.show(index);
+                element.classList.add('active');
+                // Mostrar eje solo si es temperatura o humedad
+                if (targetAxis !== 'yPres' && chart.options.scales[targetAxis]) {
+                    chart.options.scales[targetAxis].display = true;
+                }
+            }
+            chart.update();
+        }
+
+        async function fetchReadings(startDate = null, endDate = null, limit = 144) {
             loadingOverlay.style.display = 'flex';
             try {
                 let url = '/api/readings';
                 if (startDate && endDate) {
                     url += `?startDate=${startDate}&endDate=${endDate}`;
                 } else {
-                    url += '?limit=144'; // Last 24h approximation if sending every 10min
+                    url += `?limit=${limit}`;
                 }
 
                 const response = await fetch(url);
                 const data = await response.json();
                 const reversed = data.reverse();
+                
+                // Save current data for export
+                window.currentData = reversed;
 
                 chart.data.labels = reversed.map(r => {
                     const date = new Date(r.created_at);
-                    return startDate ? date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
-                                     : date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    // Si la fecha es invalida, intentar el fix de 'T' y 'Z'
+                    const finalDate = isNaN(date.getTime()) ? new Date(r.created_at.replace(' ', 'T') + 'Z') : date;
+                    
+                    return (startDate || limit > 144) ? finalDate.toLocaleDateString() + ' ' + finalDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+                                      : finalDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 });
                 chart.data.datasets[0].data = reversed.map(r => r.temperature);
                 chart.data.datasets[1].data = reversed.map(r => r.humidity);
+                chart.data.datasets[2].data = reversed.map(r => r.pressure);
+                
+                // Actualizar gradientes
+                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, 'rgba(244, 63, 94, 0.2)');
+                gradient.addColorStop(1, 'rgba(244, 63, 94, 0)');
+                chart.data.datasets[0].backgroundColor = gradient;
+                
                 chart.update();
 
-                // Update cards only with the absolute latest from a separate call
-                if (!startDate) {
+                if (!startDate && limit === 144) {
                     updateLatestCards();
                 }
+
+                // Update Min/Max Stats from current view
+                updateMinMaxStats(reversed);
             } catch (err) {
                 console.error('Error fetching data:', err);
             } finally {
@@ -216,39 +647,557 @@
         }
 
         async function updateLatestCards() {
-            const response = await fetch('/api/readings/latest');
-            const data = await response.json();
+            try {
+                // Obtenemos los últimos 5 registros para una tendencia más estable
+                const response = await fetch('/api/readings?limit=5');
+                const readings = await response.json();
 
-            if (data.temperature) {
-                document.getElementById('temp-val').innerText = data.temperature.toFixed(1);
-                document.getElementById('hum-val').innerText = data.humidity.toFixed(1);
-                document.getElementById('pres-val').innerText = data.pressure.toFixed(0);
-                document.getElementById('hi-val').innerText = data.heat_index.toFixed(1);
+                if (readings.length > 0) {
+                    const latest = readings[0];
+                    
+                    // Calculamos el promedio de los 4 anteriores (si existen)
+                    const previousReadings = readings.slice(1);
+                    const avgPrevTemp = previousReadings.length > 0 
+                        ? previousReadings.reduce((sum, r) => sum + r.temperature, 0) / previousReadings.length 
+                        : latest.temperature;
+                    const avgPrevHum = previousReadings.length > 0 
+                        ? previousReadings.reduce((sum, r) => sum + r.humidity, 0) / previousReadings.length 
+                        : latest.humidity;
+                    const avgPrevPres = previousReadings.length > 0 
+                        ? previousReadings.reduce((sum, r) => sum + r.pressure, 0) / previousReadings.length 
+                        : latest.pressure;
 
-                const lastRead = new Date(data.created_at).getTime();
-                const now = new Date().getTime();
-                const isOnline = (now - lastRead) < 600000;
-                
-                const dot = document.getElementById('status-dot');
-                const text = document.getElementById('status-text');
-                
-                if (isOnline) {
-                    dot.classList.add('online');
-                    text.innerText = 'Sensor Online';
-                } else {
-                    dot.classList.remove('online');
-                    text.innerText = 'Sensor Offline';
+                    document.getElementById('temp-val').innerText = latest.temperature.toFixed(1);
+                    document.getElementById('hum-val').innerText = latest.humidity.toFixed(1);
+                    document.getElementById('pres-val').innerText = latest.pressure.toFixed(0);
+                    document.getElementById('hi-val').innerText = latest.heat_index.toFixed(1);
+
+                    // Tendencias basadas en promedios
+                    updateTrend('temp', latest.temperature, avgPrevTemp);
+                    updateTrend('hum', latest.humidity, avgPrevHum);
+                    updateTrend('pres', latest.pressure, avgPrevPres);
+
+                    let dewPoint = latest.dew_point;
+                    if (dewPoint === undefined || dewPoint === null) {
+                        const a = 17.625;
+                        const b = 243.04;
+                        const alpha = Math.log(latest.humidity / 100) + (a * latest.temperature) / (b + latest.temperature);
+                        dewPoint = (b * alpha) / (a - alpha);
+                    }
+                    document.getElementById('dp-val').innerText = dewPoint.toFixed(1);
+
+                    const getDp = (r) => {
+                        if (r.dew_point !== undefined && r.dew_point !== null) return r.dew_point;
+                        const a = 17.625; const b = 243.04;
+                        const alpha = Math.log(r.humidity / 100) + (a * r.temperature) / (b + r.temperature);
+                        return (b * alpha) / (a - alpha);
+                    };
+
+                    const avgPrevDp = previousReadings.length > 0
+                        ? previousReadings.reduce((sum, r) => sum + getDp(r), 0) / previousReadings.length 
+                        : dewPoint;
+                    updateTrend('dp', dewPoint, avgPrevDp);
+
+                    // Alertas Críticas (Dinámico)
+                    const tempCard = document.getElementById('temp-card');
+                    const tempThreshold = parseFloat(localStorage.getItem('tempThreshold')) || 40.0;
+                    if (latest.temperature >= tempThreshold) tempCard.classList.add('critical');
+                    else tempCard.classList.remove('critical');
+
+                    // Alertas Humedad (Dinámico)
+                    const humCard = document.getElementById('hum-card');
+                    const humThreshold = parseFloat(localStorage.getItem('humThreshold')) || 80.0;
+                    if (latest.humidity >= humThreshold) humCard.classList.add('critical-hum');
+                    else humCard.classList.remove('critical-hum');
+
+                    updateStatusBadge(latest.created_at);
+                    globalLastReadingTime = latest.created_at;
+                    
+                    // Check Notifications on initial load / refresh
+                    checkThresholdsForNotifications(latest);
                 }
+            } catch (e) {
+                console.error("Error updating cards:", e);
             }
+        }
+
+        function toggleSettings() {
+            const modal = document.getElementById('settings-modal');
+            if (modal.style.display === 'flex') {
+                modal.style.display = 'none';
+            } else {
+                document.getElementById('threshold-input').value = localStorage.getItem('tempThreshold') || 40.0;
+                document.getElementById('hum-threshold-input').value = localStorage.getItem('humThreshold') || 80.0;
+                updateNotificationUI();
+                modal.style.display = 'flex';
+            }
+        }
+
+        async function requestNotificationPermission() {
+            if (!("Notification" in window)) {
+                alert("Este navegador no soporta notificaciones de escritorio.");
+                return;
+            }
+
+            const permission = await Notification.requestPermission();
+            updateNotificationUI();
+            
+            if (permission === "granted") {
+                new Notification("¡Notificaciones Activadas!", {
+                    body: "Recibirás alertas cuando los niveles sean críticos.",
+                    icon: "/favicon.ico"
+                });
+            }
+        }
+
+        function updateNotificationUI() {
+            const btn = document.getElementById('btn-notif-request');
+            const statusText = document.getElementById('notif-status-text');
+            
+            if (!("Notification" in window)) {
+                btn.style.display = 'none';
+                statusText.innerText = "No soportado en este navegador.";
+                return;
+            }
+
+            if (Notification.permission === "granted") {
+                btn.innerHTML = '<i data-lucide="check-circle" style="width: 18px;"></i> Notificaciones Listas';
+                btn.classList.add('btn-success');
+                btn.classList.remove('btn-secondary');
+                btn.disabled = true;
+                statusText.innerText = "Recibirás alertas de escritorio.";
+                statusText.style.color = 'var(--success)';
+            } else if (Notification.permission === "denied") {
+                btn.innerHTML = '<i data-lucide="alert-circle" style="width: 18px;"></i> Acceso Bloqueado';
+                btn.classList.add('btn-secondary');
+                btn.style.opacity = '0.5';
+                statusText.innerText = "Permiso denegado. Revisa los ajustes de tu navegador.";
+                statusText.style.color = 'var(--secondary)';
+            }
+            lucide.createIcons();
+        }
+
+        function checkThresholdsForNotifications(data) {
+            if (Notification.permission !== "granted") return;
+            
+            const tempThreshold = parseFloat(localStorage.getItem('tempThreshold')) || 40.0;
+            const humThreshold = parseFloat(localStorage.getItem('humThreshold')) || 80.0;
+            const now = Date.now();
+
+            // Notificación de Temperatura
+            if (data.temperature >= tempThreshold && (now - lastNotifiedTime.temp) > NOTIF_COOLDOWN) {
+                new Notification("⚠️ Alerta de Temperatura", {
+                    body: `La temperatura ha alcanzado ${data.temperature.toFixed(1)}°C (Umbral: ${tempThreshold}°C)`,
+                    icon: "/favicon.ico",
+                    tag: "temp-alert"
+                });
+                lastNotifiedTime.temp = now;
+            }
+
+            // Notificación de Humedad
+            if (data.humidity >= humThreshold && (now - lastNotifiedTime.hum) > NOTIF_COOLDOWN) {
+                new Notification("💧 Alerta de Humedad", {
+                    body: `La humedad ha alcanzado ${data.humidity.toFixed(1)}% (Umbral: ${humThreshold}%)`,
+                    icon: "/favicon.ico",
+                    tag: "hum-alert"
+                });
+                lastNotifiedTime.hum = now;
+            }
+        }
+
+        function toggleStats() {
+            const modal = document.getElementById('stats-modal');
+            if (modal.style.display === 'flex') {
+                modal.style.display = 'none';
+            } else {
+                modal.style.display = 'flex';
+                updateStats();
+            }
+        }
+
+        async function updateStats(isCustomRange = false) {
+            try {
+                let url = '/api/readings/stats';
+                if (isCustomRange) {
+                    const start = document.getElementById('stats-start-date').value;
+                    const end = document.getElementById('stats-end-date').value;
+                    if (start && end) {
+                        if (new Date(start) > new Date(end)) {
+                            alert('La fecha de fin debe ser posterior a la de inicio');
+                            return;
+                        }
+                        url += `?startDate=${start}&endDate=${end}T23:59:59`;
+                    }
+                }
+
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                // Helper to update boxes
+                const updateBox = (prefix, stats) => {
+                    if (!stats) return;
+                    
+                    // Update Sample Count if it exists
+                    const countEl = document.getElementById(`stat-${prefix}-count`);
+                    if (countEl && stats.count !== undefined) {
+                        countEl.innerText = `${stats.count.toLocaleString()} registros`;
+                    }
+
+                    const fields = [
+                        'min-temp', 'max-temp', 'avg-temp', 'med-temp', 'rng-temp',
+                        'min-hum', 'max-hum', 'avg-hum', 'med-hum', 'rng-hum',
+                        'min-pres', 'max-pres', 'avg-pres', 'med-pres', 'rng-pres',
+                        'min-hi', 'max-hi', 'avg-hi',
+                        'min-dp', 'max-dp', 'avg-dp'
+                    ];
+
+                    fields.forEach(field => {
+                        const el = document.getElementById(`stat-${prefix}-${field}`);
+                        if (!el) return;
+                        
+                        const apiKey = field.replace('-', '_');
+                        let value = stats[apiKey];
+                        
+                        if (value === null || value === undefined) {
+                            el.innerText = '--';
+                            return;
+                        }
+
+                        if (field.includes('temp') || field.includes('hum') || field.includes('hi') || field.includes('dp')) {
+                            const unit = (field.includes('temp') || field.includes('hi') || field.includes('dp')) ? '°C' : '%';
+                            el.innerText = value.toFixed(field.includes('rng') ? 2 : 1) + unit;
+                            
+                            // Add timestamps if available for min/max
+                            if (field.startsWith('min') || field.startsWith('max')) {
+                                const timeKey = apiKey + '_at';
+                                if (stats[timeKey]) {
+                                    const time = new Date(stats[timeKey]).toLocaleString();
+                                    el.title = `Ocurrió el: ${time}`;
+                                    el.style.cursor = 'help';
+                                    el.style.borderBottom = '1px dotted rgba(255,255,255,0.3)';
+                                }
+                            }
+                        } else {
+                            el.innerText = value.toFixed(field.includes('rng') ? 1 : 0) + ' hPa';
+                        }
+                    });
+
+                    // Update Stability (Standard Deviation)
+                    ['temp', 'hum'].forEach(type => {
+                        const stdEl = document.getElementById(`stat-${prefix}-std-${type}`);
+                        if (stdEl && stats[`std_${type}`] !== undefined) {
+                            const val = stats[`std_${type}`];
+                            let label = 'Estable';
+                            let color = '#10b981';
+                            if (val > (type === 'temp' ? 2 : 5)) { label = 'Inestable'; color = '#f43f5e'; }
+                            else if (val > (type === 'temp' ? 0.5 : 2)) { label = 'Variable'; color = '#f59e0b'; }
+                            
+                            stdEl.innerHTML = `<span style="color: ${color}; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">${label}</span>`;
+                            stdEl.title = `Desviación Estándar: ${val.toFixed(2)}`;
+                        }
+                    });
+                };
+
+                updateBox('24h', data.last24h);
+                updateBox('global', data.global);
+                if (data.range) updateBox('range', data.range);
+
+                // Fetch extra presets manually since API is currently optimized for 24h/Global
+                const fetchExtra = async (rangeLabel, hours) => {
+                    const start = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+                    const end = new Date().toISOString();
+                    const res = await fetch(`/api/readings/stats?startDate=${start}&endDate=${end}`);
+                    const d = await res.json();
+                    updateBox(rangeLabel, d.range);
+                };
+
+                // Si estamos viendo la pestaña de 1h o 7d, cargarlos bajo demanda
+                const activeTab = document.querySelector('.tab-btn.active').innerText;
+                if (activeTab === '1h') await fetchExtra('1h', 1);
+                if (activeTab === '7d') await fetchExtra('7d', 168);
+
+                lucide.createIcons();
+            } catch (e) {
+                console.error("Error updating stats:", e);
+            }
+        }
+
+        function switchStatsTab(tab) {
+            const tabs = document.querySelectorAll('.tab-btn');
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            const contents = ['1h', '24h', '7d', 'global', 'custom'];
+            contents.forEach(id => {
+                const el = document.getElementById(`stats-content-${id}`);
+                if (el) el.style.display = 'none';
+            });
+
+            if (tab === '1h') {
+                tabs[0].classList.add('active');
+                document.getElementById('stats-content-1h').style.display = 'grid';
+            } else if (tab === '24h') {
+                tabs[1].classList.add('active');
+                document.getElementById('stats-content-24h').style.display = 'grid';
+            } else if (tab === '7d') {
+                tabs[2].classList.add('active');
+                document.getElementById('stats-content-7d').style.display = 'grid';
+            } else if (tab === 'global') {
+                tabs[3].classList.add('active');
+                document.getElementById('stats-content-global').style.display = 'grid';
+            } else {
+                tabs[4].classList.add('active');
+                document.getElementById('stats-content-custom').style.display = 'block';
+            }
+            
+            updateStats();
+        }
+
+        function saveSettings() {
+            const tempVal = document.getElementById('threshold-input').value;
+            const humVal = document.getElementById('hum-threshold-input').value;
+            localStorage.setItem('tempThreshold', tempVal);
+            localStorage.setItem('humThreshold', humVal);
+            
+            // Reiniciar el cooldown de notificaciones al cambiar umbrales
+            lastNotifiedTime = { temp: 0, hum: 0 };
+            
+            toggleSettings();
+            updateLatestCards(); // Aplicar inmediatamente
+        }
+
+        function updateStatusBadge(createdAt) {
+            if (!createdAt) return;
+            globalLastReadingTime = createdAt;
+            
+            const dateStr = createdAt.includes('Z') || createdAt.includes('+') ? createdAt : createdAt.replace(' ', 'T') + 'Z';
+            const lastRead = new Date(dateStr).getTime();
+            const now = new Date().getTime();
+            const diffMin = (now - lastRead) / 60000;
+            
+            const dot = document.getElementById('status-dot');
+            const text = document.getElementById('status-text');
+            const seen = document.getElementById('last-seen');
+            
+            // Limpiar estados previos
+            dot.classList.remove('online', 'delayed', 'offline');
+            
+            if (diffMin < 2) {
+                dot.classList.add('online');
+                text.innerText = 'Sensor Online';
+                text.style.color = 'var(--success)';
+            } else if (diffMin < 10) {
+                dot.classList.add('delayed');
+                text.innerText = 'Sensor Demorado';
+                text.style.color = 'var(--warning)';
+            } else {
+                dot.classList.add('offline');
+                text.innerText = 'Sensor Desconectado';
+                text.style.color = 'var(--secondary)';
+            }
+
+            // Actualizar Tiempo Relativo
+            if (diffMin < 1) {
+                seen.innerText = 'Visto ahora mismo';
+            } else if (diffMin < 60) {
+                seen.innerText = `Visto hace ${Math.floor(diffMin)} min`;
+            } else {
+                seen.innerText = `Visto hace ${Math.floor(diffMin/60)}h ${Math.floor(diffMin%60)}m`;
+            }
+        }
+
+        function updateMinMaxStats(readings) {
+            if (!readings || readings.length === 0) return;
+            
+            const temps = readings.map(r => r.temperature);
+            const hums = readings.map(r => r.humidity);
+            const press = readings.map(r => r.pressure);
+            const dps = readings.map(r => r.dew_point).filter(v => v !== null && v !== undefined);
+
+            document.getElementById('temp-min').innerText = Math.min(...temps).toFixed(1) + '°';
+            document.getElementById('temp-max').innerText = Math.max(...temps).toFixed(1) + '°';
+            document.getElementById('hum-min').innerText = Math.min(...hums).toFixed(1) + '%';
+            document.getElementById('hum-max').innerText = Math.max(...hums).toFixed(1) + '%';
+            document.getElementById('pres-min').innerText = Math.min(...press).toFixed(0);
+            document.getElementById('pres-max').innerText = Math.max(...press).toFixed(0);
+            
+            if (dps.length > 0) {
+                document.getElementById('dp-min').innerText = Math.min(...dps).toFixed(1) + '°';
+                document.getElementById('dp-max').innerText = Math.max(...dps).toFixed(1) + '°';
+            }
+        }
+
+        function updateTrend(type, newVal, oldVal) {
+            const badge = document.getElementById(`${type}-trend`);
+            if (!oldVal || newVal === oldVal) {
+                badge.innerHTML = '<i data-lucide="minus"></i>';
+                badge.className = 'trend-badge trend-equal';
+            } else if (newVal > oldVal) {
+                badge.innerHTML = '<i data-lucide="trending-up"></i>' + (newVal - oldVal).toFixed(1);
+                badge.className = 'trend-badge trend-up';
+            } else {
+                badge.innerHTML = '<i data-lucide="trending-down"></i>' + Math.abs(newVal - oldVal).toFixed(1);
+                badge.className = 'trend-badge trend-down';
+            }
+            lucide.createIcons();
+        }
+
+        // --- Socket.io Real-Time Updates ---
+        const socket = io();
+
+        socket.on('newReading', (data) => {
+            console.log('Update recibido vía Socket.io:', data);
+            
+            // 1. Actualizar Tarjetas (con tendencia basada en los últimos datos)
+            const latestReadings = window.currentData || [];
+            if (latestReadings.length > 0) {
+                // Tomar los últimos 4 del historial + el nuevo dato para el promedio
+                const last4 = latestReadings.slice(-4);
+                const avgTemp = last4.reduce((sum, r) => sum + r.temperature, 0) / last4.length;
+                const avgHum = last4.reduce((sum, r) => sum + r.humidity, 0) / last4.length;
+                const avgPres = last4.reduce((sum, r) => sum + r.pressure, 0) / last4.length;
+
+                updateTrend('temp', data.temperature, avgTemp);
+                updateTrend('hum', data.humidity, avgHum);
+                updateTrend('pres', data.pressure, avgPres);
+
+                // Calcular Punto de Rocio si no existe en los datos
+                const getDp = (r) => {
+                    if (r.dew_point !== undefined && r.dew_point !== null) return r.dew_point;
+                    const a = 17.625; const b = 243.04;
+                    const alpha = Math.log(r.humidity / 100) + (a * r.temperature) / (b + r.temperature);
+                    return (b * alpha) / (a - alpha);
+                };
+
+                const currentDp = getDp(data);
+                const avgDp = last4.reduce((sum, r) => sum + getDp(r), 0) / last4.length;
+                updateTrend('dp', currentDp, avgDp);
+            }
+
+            document.getElementById('temp-val').innerText = data.temperature.toFixed(1);
+            document.getElementById('hum-val').innerText = data.humidity.toFixed(1);
+            document.getElementById('pres-val').innerText = data.pressure.toFixed(0);
+            document.getElementById('hi-val').innerText = data.heat_index.toFixed(1);
+            let dewPoint = data.dew_point;
+            if (dewPoint === undefined || dewPoint === null) {
+                // Fallback calculation in frontend
+                const a = 17.625;
+                const b = 243.04;
+                const alpha = Math.log(data.humidity / 100) + (a * data.temperature) / (b + data.temperature);
+                dewPoint = (b * alpha) / (a - alpha);
+            }
+            document.getElementById('dp-val').innerText = dewPoint.toFixed(1);
+            
+            // Re-calcular Min/Max si es tiempo real
+            if (!document.getElementById('start-date').value && window.currentData) {
+                window.currentData.push(data);
+                if (window.currentData.length > 144) window.currentData.shift();
+                updateMinMaxStats(window.currentData);
+            }
+
+            // Alertas Críticas (Dinámico)
+            const tempCard = document.getElementById('temp-card');
+            const tempThreshold = parseFloat(localStorage.getItem('tempThreshold')) || 40.0;
+            if (data.temperature >= tempThreshold) tempCard.classList.add('critical');
+            else tempCard.classList.remove('critical');
+
+            const humCard = document.getElementById('hum-card');
+            const humThreshold = parseFloat(localStorage.getItem('humThreshold')) || 80.0;
+            if (data.humidity >= humThreshold) humCard.classList.add('critical-hum');
+            else humCard.classList.remove('critical-hum');
+
+            // Status Online & Actualizar Tiempo
+            updateStatusBadge(data.created_at);
+            globalLastReadingTime = data.created_at;
+
+            // Check Notifications
+            checkThresholdsForNotifications(data);
+
+            // 2. Actualizar Gráfica (solo si no hay filtros activos)
+            if (!document.getElementById('start-date').value) {
+                const date = new Date(data.created_at);
+                const label = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                chart.data.labels.push(label);
+                chart.data.datasets[0].data.push(data.temperature);
+                chart.data.datasets[1].data.push(data.humidity);
+                chart.data.datasets[2].data.push(data.pressure);
+
+                // Mantener el límite de puntos actual
+                if (chart.data.labels.length > 144) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                    chart.data.datasets[1].data.shift();
+                    chart.data.datasets[2].data.shift();
+                }
+                chart.update('none'); // Update sin animacion para suavidad
+            }
+        });
+
+        function setQuickRange(range) {
+            // Update UI buttons
+            document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            let limit = 144; // Default 24h
+            if (range === 'hour') limit = 6;   // 1h (if sending every 10min, but wait, ESP sends every 1min)
+            // Correction: Firmware sends every 60s (1 min).
+            if (range === 'hour') limit = 60;
+            if (range === 'day') limit = 1440;
+            if (range === 'week') limit = 10080;
+
+            fetchReadings(null, null, limit);
+        }
+
+        function exportToCSV() {
+            if (!window.currentData || window.currentData.length === 0) {
+                alert('No hay datos para exportar');
+                return;
+            }
+
+            // Headers con comillas para evitar problemas de encoding y separacion
+            const headers = ['"Fecha y Hora"', '"Temperatura (°C)"', '"Humedad (%)"', '"Presion (hPa)"', '"Sensacion (°C)"', '"Punto Rocio (°C)"'];
+            
+            const rows = window.currentData.map(r => {
+                const dateStr = r.created_at.includes('Z') || r.created_at.includes('+') ? r.created_at : r.created_at.replace(' ', 'T') + 'Z';
+                const formattedDate = new Date(dateStr).toLocaleString();
+                
+                return [
+                    `"${formattedDate}"`,
+                    `"${r.temperature.toFixed(2)}"`,
+                    `"${r.humidity.toFixed(2)}"`,
+                    `"${r.pressure.toFixed(2)}"`,
+                    `"${r.heat_index.toFixed(2)}"`,
+                    `"${(r.dew_point || 0).toFixed(2)}"`
+                ];
+            });
+
+            // Agregamos el BOM (Byte Order Mark) para que Excel reconozca UTF-8 correctamente
+            let csvContent = "\ufeff" 
+                + headers.join(",") + "\n"
+                + rows.map(e => e.join(",")).join("\n");
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Reporte_IoT_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         function applyFilters() {
             const start = document.getElementById('start-date').value;
             const end = document.getElementById('end-date').value;
             if (start && end) {
-                // Set end to end of day
+                if (new Date(start) > new Date(end)) {
+                    alert('La fecha de fin debe ser posterior a la de inicio');
+                    return;
+                }
                 const endDateTime = end + 'T23:59:59';
                 fetchReadings(start, endDateTime);
+                // Clear quick filters
+                document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active'));
             } else {
                 alert('Por favor selecciona ambas fechas');
             }
@@ -257,12 +1206,21 @@
         function resetFilters() {
             document.getElementById('start-date').value = '';
             document.getElementById('end-date').value = '';
+            document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active'));
             fetchReadings();
         }
 
         initChart();
         fetchReadings();
-        setInterval(updateLatestCards, 30000);
+        // El polling ya no es necesario gracias a Socket.io, 
+        // pero mantenemos una verificación de estado cada 1 min por si acaso
+        setInterval(() => {
+            if (globalLastReadingTime) {
+                updateStatusBadge(globalLastReadingTime);
+            }
+        }, 30000); // Cada 30 segundos verificar salud
+        
+        setInterval(updateLatestCards, 60000);
     </script>
 </body>
 </html>
