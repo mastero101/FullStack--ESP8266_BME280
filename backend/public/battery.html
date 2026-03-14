@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IoT Dashboard - Local Weather</title>
+    <title>IoT Dashboard - Battery Monitor</title>
     <link rel="stylesheet" href="style.css">
     <script src="lib/chart.min.js"></script>
     <script src="lib/lucide.min.js"></script>
@@ -11,32 +11,42 @@
 </head>
 
 <body>
-    <!-- Modal de Ajustes (Fuera para evitar clipping) -->
+    <!-- Modal de Ajustes Batería (Independiente del BME280) -->
     <div id="settings-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Ajustes de Alerta</h2>
+                <h2>⚡ Ajustes de Alerta - Batería</h2>
                 <button class="btn-icon" onclick="toggleSettings()" style="padding: 0.4rem;"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label>Umbral de Temperatura Crítica (°C)</label>
+                    <label>Umbral de Sobrevoltaje (V)</label>
                     <div style="display: flex; gap: 1rem; align-items: center;">
-                        <input type="number" id="threshold-input" value="40" step="0.5">
-                        <span>°C</span>
+                        <input type="number" id="threshold-input" value="29.2" step="0.1" min="20" max="35">
+                        <span>V</span>
                     </div>
                     <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
-                        La tarjeta de temperatura pulsará en rojo al superar este valor.
+                        La tarjeta de Voltaje pulsará en rojo al superar este valor. (8S LiFePO4 máx recomendado: ~29.2V)
                     </p>
                 </div>
                 <div class="form-group" style="margin-top: 1.5rem;">
-                    <label>Umbral de Humedad Crítica (%)</label>
+                    <label>Umbral de Bajovoltaje (V)</label>
                     <div style="display: flex; gap: 1rem; align-items: center;">
-                        <input type="number" id="hum-threshold-input" value="80" step="1">
-                        <span>%</span>
+                        <input type="number" id="low-volt-threshold-input" value="22.0" step="0.1" min="18" max="28">
+                        <span>V</span>
                     </div>
                     <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
-                        La tarjeta de humedad pulsará en azul al superar este valor.
+                        Alerta cuando el voltaje baje de este nivel. (8S LiFePO4 mín recomendado: ~22.0V)
+                    </p>
+                </div>
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label>Umbral de Sobrecorriente (A)</label>
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <input type="number" id="curr-threshold-input" value="20" step="0.5" min="0" max="100">
+                        <span>A</span>
+                    </div>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                        La tarjeta de Corriente pulsará en azul al superar este valor en amperios.
                     </p>
                 </div>
                 <div class="form-group" style="margin-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;">
@@ -46,7 +56,7 @@
                             <i data-lucide="bell" style="width: 18px;"></i> Activar Notificaciones
                         </button>
                         <p id="notif-status-text" style="font-size: 0.7rem; color: var(--text-muted); text-align: center;">
-                            Requerido para alertas en segundo plano.
+                            Requerido para alertas de batería en segundo plano.
                         </p>
                     </div>
                 </div>
@@ -71,175 +81,15 @@
                     <button class="tab-btn" onclick="switchStatsTab('custom')">Rango</button>
                 </div>
                 <div id="stats-content-1h" class="stats-grid" style="display: none;">
-                    <div class="stat-box">
-                        <label>Temperatura</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-1h-min-temp">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-1h-max-temp">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-1h-avg-temp">--</b></div>
-                        <div class="stat-row"><span>Mediana:</span> <b id="stat-1h-med-temp">--</b></div>
-                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-1h-rng-temp">--</b></div>
-                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-1h-std-temp">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Humedad</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-1h-min-hum">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-1h-max-hum">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-1h-avg-hum">--</b></div>
-                        <div class="stat-row"><span>Mediana:</span> <b id="stat-1h-med-hum">--</b></div>
-                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-1h-rng-hum">--</b></div>
-                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-1h-std-hum">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Presión</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-1h-min-pres">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-1h-max-pres">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-1h-avg-pres">--</b></div>
-                        <div class="stat-row"><span>Mediana:</span> <b id="stat-1h-med-pres">--</b></div>
-                        <div class="stat-row"><span>Variación:</span> <b id="stat-1h-rng-pres">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Sensación (HI)</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-1h-min-hi">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-1h-max-hi">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-1h-avg-hi">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Punto de Rocío</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-1h-min-dp">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-1h-max-dp">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-1h-avg-dp">--</b></div>
-                        <div class="stat-row" style="margin-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
-                            <span>Muestras:</span> <b id="stat-1h-count">--</b>
-                        </div>
                     </div>
                 </div>
                 <div id="stats-content-24h" class="stats-grid">
-                    <div class="stat-box">
-                        <label>Temperatura</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-24h-min-temp">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-24h-max-temp">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-24h-avg-temp">--</b></div>
-                        <div class="stat-row"><span>Mediana:</span> <b id="stat-24h-med-temp">--</b></div>
-                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-24h-rng-temp">--</b></div>
-                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-24h-std-temp">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Humedad</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-24h-min-hum">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-24h-max-hum">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-24h-avg-hum">--</b></div>
-                        <div class="stat-row"><span>Mediana:</span> <b id="stat-24h-med-hum">--</b></div>
-                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-24h-rng-hum">--</b></div>
-                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-24h-std-hum">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Presión</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-24h-min-pres">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-24h-max-pres">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-24h-avg-pres">--</b></div>
-                        <div class="stat-row"><span>Mediana:</span> <b id="stat-24h-med-pres">--</b></div>
-                        <div class="stat-row"><span>Variación:</span> <b id="stat-24h-rng-pres">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Sensación (HI)</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-24h-min-hi">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-24h-max-hi">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-24h-avg-hi">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Punto de Rocío</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-24h-min-dp">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-24h-max-dp">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-24h-avg-dp">--</b></div>
-                        <div class="stat-row" style="margin-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
-                            <span>Muestras:</span> <b id="stat-24h-count">--</b>
-                        </div>
                     </div>
                 </div>
                 <div id="stats-content-7d" class="stats-grid" style="display: none;">
-                    <div class="stat-box">
-                        <label>Temperatura</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-7d-min-temp">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-7d-max-temp">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-7d-avg-temp">--</b></div>
-                        <div class="stat-row"><span>Mediana:</span> <b id="stat-7d-med-temp">--</b></div>
-                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-7d-rng-temp">--</b></div>
-                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-7d-std-temp">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Humedad</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-7d-min-hum">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-7d-max-hum">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-7d-avg-hum">--</b></div>
-                        <div class="stat-row"><span>Mediana:</span> <b id="stat-7d-med-hum">--</b></div>
-                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-7d-rng-hum">--</b></div>
-                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-7d-std-hum">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Presión</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-7d-min-pres">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-7d-max-pres">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-7d-avg-pres">--</b></div>
-                        <div class="stat-row"><span>Mediana:</span> <b id="stat-7d-med-pres">--</b></div>
-                        <div class="stat-row"><span>Variación:</span> <b id="stat-7d-rng-pres">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Sensación (HI)</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-7d-min-hi">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-7d-max-hi">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-7d-avg-hi">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Punto de Rocío</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-7d-min-dp">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-7d-max-dp">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-7d-avg-dp">--</b></div>
-                        <div class="stat-row" style="margin-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
-                            <span>Muestras:</span> <b id="stat-7d-count">--</b>
-                        </div>
                     </div>
                 </div>
                 <div id="stats-content-global" class="stats-grid" style="display: none;">
-                    <div class="stat-box">
-                        <label>Temperatura</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-global-min-temp">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-global-max-temp">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-global-avg-temp">--</b></div>
-                        <div class="stat-row"><span>Mediana:</span> <b id="stat-global-med-temp">--</b></div>
-                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-global-rng-temp">--</b></div>
-                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-global-std-temp">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Humedad</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-global-min-hum">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-global-max-hum">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-global-avg-hum">--</b></div>
-                        <div class="stat-row"><span>Mediana:</span> <b id="stat-global-med-hum">--</b></div>
-                        <div class="stat-row"><span>Amplitud:</span> <b id="stat-global-rng-hum">--</b></div>
-                        <div class="stat-row"><span>Estabilidad:</span> <b id="stat-global-std-hum">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Presión</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-global-min-pres">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-global-max-pres">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-global-avg-pres">--</b></div>
-                        <div class="stat-row"><span>Mediana:</span> <b id="stat-global-med-pres">--</b></div>
-                        <div class="stat-row"><span>Variación:</span> <b id="stat-global-rng-pres">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Sensación (HI)</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-global-min-hi">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-global-max-hi">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-global-avg-hi">--</b></div>
-                    </div>
-                    <div class="stat-box">
-                        <label>Punto de Rocío</label>
-                        <div class="stat-row"><span>Mín:</span> <b id="stat-global-min-dp">--</b></div>
-                        <div class="stat-row"><span>Máx:</span> <b id="stat-global-max-dp">--</b></div>
-                        <div class="stat-row"><span>Prom:</span> <b id="stat-global-avg-dp">--</b></div>
-                        <div class="stat-row" style="margin-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
-                            <span>Muestras:</span> <b id="stat-global-count">--</b>
-                        </div>
                     </div>
                 </div>
                 <div id="stats-content-custom" class="stats-container" style="display: none;">
@@ -257,46 +107,6 @@
                         </button>
                     </div>
                     <div class="stats-grid">
-                        <div class="stat-box">
-                            <label>Temperatura</label>
-                            <div class="stat-row"><span>Mín:</span> <b id="stat-range-min-temp">--</b></div>
-                            <div class="stat-row"><span>Máx:</span> <b id="stat-range-max-temp">--</b></div>
-                            <div class="stat-row"><span>Prom:</span> <b id="stat-range-avg-temp">--</b></div>
-                            <div class="stat-row"><span>Mediana:</span> <b id="stat-range-med-temp">--</b></div>
-                            <div class="stat-row"><span>Amplitud:</span> <b id="stat-range-rng-temp">--</b></div>
-                            <div class="stat-row"><span>Estabilidad:</span> <b id="stat-range-std-temp">--</b></div>
-                        </div>
-                        <div class="stat-box">
-                            <label>Humedad</label>
-                            <div class="stat-row"><span>Mín:</span> <b id="stat-range-min-hum">--</b></div>
-                            <div class="stat-row"><span>Máx:</span> <b id="stat-range-max-hum">--</b></div>
-                            <div class="stat-row"><span>Prom:</span> <b id="stat-range-avg-hum">--</b></div>
-                            <div class="stat-row"><span>Mediana:</span> <b id="stat-range-med-hum">--</b></div>
-                            <div class="stat-row"><span>Amplitud:</span> <b id="stat-range-rng-hum">--</b></div>
-                            <div class="stat-row"><span>Estabilidad:</span> <b id="stat-range-std-hum">--</b></div>
-                        </div>
-                        <div class="stat-box">
-                            <label>Presión</label>
-                            <div class="stat-row"><span>Mín:</span> <b id="stat-range-min-pres">--</b></div>
-                            <div class="stat-row"><span>Máx:</span> <b id="stat-range-max-pres">--</b></div>
-                            <div class="stat-row"><span>Prom:</span> <b id="stat-range-avg-pres">--</b></div>
-                            <div class="stat-row"><span>Mediana:</span> <b id="stat-range-med-pres">--</b></div>
-                            <div class="stat-row"><span>Variación:</span> <b id="stat-range-rng-pres">--</b></div>
-                        </div>
-                        <div class="stat-box">
-                            <label>Sensación (HI)</label>
-                            <div class="stat-row"><span>Mín:</span> <b id="stat-range-min-hi">--</b></div>
-                            <div class="stat-row"><span>Máx:</span> <b id="stat-range-max-hi">--</b></div>
-                            <div class="stat-row"><span>Prom:</span> <b id="stat-range-avg-hi">--</b></div>
-                        </div>
-                        <div class="stat-box">
-                            <label>Punto de Rocío</label>
-                            <div class="stat-row"><span>Mín:</span> <b id="stat-range-min-dp">--</b></div>
-                            <div class="stat-row"><span>Máx:</span> <b id="stat-range-max-dp">--</b></div>
-                            <div class="stat-row"><span>Prom:</span> <b id="stat-range-avg-dp">--</b></div>
-                            <div class="stat-row" style="margin-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
-                                <span>Muestras:</span> <b id="stat-range-count">--</b>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -310,11 +120,11 @@
     <div class="container">
         <header>
             <div>
-                <h1>BME280 Sensores</h1>
-                <p style="color: var(--text-muted)">Monitoreo Clima en tiempo real</p>
+                <h1>INA226 Batería</h1>
+                <p style="color: var(--text-muted)">Monitoreo Batería en tiempo real</p>
                 <div class="nav-tabs" style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                    <button class="btn-filter active">BME280 (Clima)</button>
-                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/battery.html'">INA226 (Batería)</button>
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/'">BME280 (Clima)</button>
+                    <button class="btn-filter active">INA226 (Batería)</button>
                 </div>
             </div>
             <div class="header-actions" style="display: flex; align-items: center; gap: 1rem;">
@@ -325,7 +135,7 @@
                     </div>
                     <span id="last-seen" style="font-size: 0.65rem; color: var(--text-muted); margin-left: 1.1rem;">Visto: --</span>
                 </div>
-                <button class="btn-icon" onclick="window.location.href='/kiosk'" title="Modo Quiosco">
+                <button class="btn-icon" onclick="window.location.href='/kiosk-battery'" title="Modo Quiosco Batería">
                     <i data-lucide="layout-dashboard"></i>
                 </button>
                 <button class="btn-icon" onclick="toggleStats()" title="Estadísticas">
@@ -338,79 +148,67 @@
         </header>
 
         <div class="grid">
-            <div class="card" id="temp-card">
+
+            <div class="card" id="volt-card">
                 <div class="card-label">
-                    <i data-lucide="thermometer" style="color: #f87171"></i> Temperatura
+                    <i data-lucide="zap" style="color: #fbbf24"></i> Voltaje
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="temp-val">--</span><span class="card-unit">°C</span>
+                        <span id="volt-val">--</span><span class="card-unit">V</span>
                     </div>
-                    <span id="temp-trend" class="trend-badge"></span>
+                    <span id="volt-trend" class="trend-badge"></span>
                 </div>
                 <div class="sub-stats">
-                    <div class="stat-item">Min: <b id="temp-min">--</b></div>
-                    <div class="stat-item">Max: <b id="temp-max">--</b></div>
+                    <div class="stat-item">Min: <b id="volt-min">--</b></div>
+                    <div class="stat-item">Max: <b id="volt-max">--</b></div>
                 </div>
             </div>
-            <div class="card" id="hum-card">
+            <div class="card" id="curr-card">
                 <div class="card-label">
-                    <i data-lucide="droplets" style="color: #60a5fa"></i> Humedad
+                    <i data-lucide="activity" style="color: #60a5fa"></i> Corriente
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="hum-val">--</span><span class="card-unit">%</span>
+                        <span id="curr-val">--</span><span class="card-unit">A</span>
                     </div>
-                    <span id="hum-trend" class="trend-badge"></span>
+                    <span id="curr-trend" class="trend-badge"></span>
                 </div>
                 <div class="sub-stats">
-                    <div class="stat-item">Min: <b id="hum-min">--</b></div>
-                    <div class="stat-item">Max: <b id="hum-max">--</b></div>
+                    <div class="stat-item">Min: <b id="curr-min">--</b></div>
+                    <div class="stat-item">Max: <b id="curr-max">--</b></div>
                 </div>
             </div>
             <div class="card">
                 <div class="card-label">
-                    <i data-lucide="gauge" style="color: #34d399"></i> Presión
+                    <i data-lucide="power" style="color: #34d399"></i> Potencia
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="pres-val">--</span><span class="card-unit">hPa</span>
+                        <span id="pow-val">--</span><span class="card-unit">W</span>
                     </div>
-                    <span id="pres-trend" class="trend-badge"></span>
+                    <span id="pow-trend" class="trend-badge"></span>
                 </div>
                 <div class="sub-stats">
-                    <div class="stat-item">Min: <b id="pres-min">--</b></div>
-                    <div class="stat-item">Max: <b id="pres-max">--</b></div>
+                    <div class="stat-item">Min: <b id="pow-min">--</b></div>
+                    <div class="stat-item">Max: <b id="pow-max">--</b></div>
                 </div>
             </div>
-            <div class="card">
+            <div class="card" id="pct-card">
                 <div class="card-label">
-                    <i data-lucide="flame" style="color: #fbbf24"></i> Sensación
+                    <i data-lucide="battery" style="color: #f87171"></i> SOC Estimado
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="hi-val">--</span><span class="card-unit">°C</span>
+                        <span id="pct-val">--</span><span class="card-unit">%</span>
                     </div>
-                </div>
-                <div class="sub-stats" style="opacity: 0; pointer-events: none;">
-                    <div>&nbsp;</div>
-                </div>
-            </div>
-            <div class="card" id="dp-card">
-                <div class="card-label">
-                    <i data-lucide="droplet" style="color: #6366f1"></i> Punto Rocío
-                </div>
-                <div class="card-body">
-                    <div class="card-value">
-                        <span id="dp-val">--</span><span class="card-unit">°C</span>
-                    </div>
-                    <span id="dp-trend" class="trend-badge"></span>
+                    <span id="pct-trend" class="trend-badge"></span>
                 </div>
                 <div class="sub-stats">
-                    <div class="stat-item">Min: <b id="dp-min">--</b></div>
-                    <div class="stat-item">Max: <b id="dp-max">--</b></div>
+                    <div class="stat-item" style="color: var(--text-muted); font-size: 0.70rem;">(Basado en 8S 25.6V LiFePO4)</div>
                 </div>
             </div>
+
         </div>
 
         <div class="chart-section" id="chart-container">
@@ -429,9 +227,9 @@
                 
                 <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 1rem;">
                     <div class="toggle-legend" id="chart-legend">
-                        <div class="legend-item active" onclick="toggleDataset(0, this)" style="--color: #f43f5e">Temperatura</div>
-                        <div class="legend-item active" onclick="toggleDataset(1, this)" style="--color: #6366f1">Humedad</div>
-                        <div class="legend-item active" onclick="toggleDataset(2, this)" style="--color: #10b981">Presión</div>
+                        <div class="legend-item active" onclick="toggleDataset(0, this)" style="--color: #f43f5e">Voltaje</div>
+                        <div class="legend-item active" onclick="toggleDataset(1, this)" style="--color: #60a5fa">Corriente</div>
+                        <div class="legend-item active" onclick="toggleDataset(2, this)" style="--color: #34d399">Potencia</div>
                     </div>
                     
                     <div class="filters">
@@ -468,8 +266,8 @@
                 data: {
                     labels: [],
                     datasets: [{
-                        label: 'Temperatura (°C)',
-                        yAxisID: 'yTemp',
+                        label: 'Voltaje (°C)',
+                        yAxisID: 'yVolt',
                         data: [],
                         borderColor: '#f43f5e',
                         backgroundColor: 'transparent',
@@ -481,8 +279,8 @@
                         pointBorderColor: 'rgba(255,255,255,0.1)',
                         pointHoverRadius: 6
                     }, {
-                        label: 'Humedad (%)',
-                        yAxisID: 'yHum',
+                        label: 'Corriente (A)',
+                        yAxisID: 'yCurr',
                         data: [],
                         borderColor: '#6366f1',
                         backgroundColor: 'transparent',
@@ -492,8 +290,8 @@
                         pointRadius: 0,
                         borderDash: [5, 5]
                     }, {
-                        label: 'Presión (hPa)',
-                        yAxisID: 'yPres',
+                        label: 'Potencia (W)',
+                        yAxisID: 'yPow',
                         data: [],
                         borderColor: '#10b981',
                         backgroundColor: 'transparent',
@@ -537,12 +335,12 @@
                                 font: { size: 11 }
                             }
                         },
-                        yTemp: {
+                        yVolt: {
                             type: 'linear',
                             display: true,
                             position: 'left',
                             suggestedMin: 0,
-                            suggestedMax: 55,
+                            suggestedMax: 30,
                             grid: { color: 'rgba(255,255,255,0.05)' },
                             ticks: { 
                                 color: '#f43f5e', 
@@ -551,12 +349,12 @@
                                 z: 10
                             }
                         },
-                        yHum: {
+                        yCurr: {
                             type: 'linear',
                             display: true,
                             position: 'right',
                             suggestedMin: 0,
-                            suggestedMax: 100,
+                            suggestedMax: 5,
                             grid: { display: false },
                             ticks: { 
                                 color: '#6366f1', 
@@ -565,12 +363,12 @@
                                 z: 10
                             }
                         },
-                        yPres: {
+                        yPow: {
                             type: 'linear',
                             display: false,
                             position: 'right',
-                            suggestedMin: 900,
-                            suggestedMax: 1100,
+                            suggestedMin: 0,
+                            suggestedMax: 50,
                         }
                     }
                 }
@@ -592,7 +390,7 @@
             } else {
                 chart.show(index);
                 element.classList.add('active');
-                // Mostrar eje solo si es temperatura o humedad
+                // Mostrar eje solo si es voltaje o humedad
                 if (targetAxis !== 'yPres' && chart.options.scales[targetAxis]) {
                     chart.options.scales[targetAxis].display = true;
                 }
@@ -603,7 +401,7 @@
         async function fetchReadings(startDate = null, endDate = null, limit = 144) {
             loadingOverlay.style.display = 'flex';
             try {
-                let url = '/api/readings';
+                let url = '/api/battery';
                 if (startDate && endDate) {
                     url += `?startDate=${startDate}&endDate=${endDate}`;
                 } else {
@@ -625,9 +423,9 @@
                     return (startDate || limit > 144) ? finalDate.toLocaleDateString() + ' ' + finalDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
                                       : finalDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 });
-                chart.data.datasets[0].data = reversed.map(r => r.temperature);
-                chart.data.datasets[1].data = reversed.map(r => r.humidity);
-                chart.data.datasets[2].data = reversed.map(r => r.pressure);
+                chart.data.datasets[0].data = reversed.map(r => r.voltage);
+                chart.data.datasets[1].data = reversed.map(r => r.current / 1000.0);
+                chart.data.datasets[2].data = reversed.map(r => r.power / 1000.0);
                 
                 // Actualizar gradientes
                 const gradient = ctx.createLinearGradient(0, 0, 0, 400);
@@ -653,7 +451,7 @@
         async function updateLatestCards() {
             try {
                 // Obtenemos los últimos 5 registros para una tendencia más estable
-                const response = await fetch('/api/readings?limit=5');
+                const response = await fetch('/api/battery?limit=5');
                 const readings = await response.json();
 
                 if (readings.length > 0) {
@@ -662,57 +460,46 @@
                     // Calculamos el promedio de los 4 anteriores (si existen)
                     const previousReadings = readings.slice(1);
                     const avgPrevTemp = previousReadings.length > 0 
-                        ? previousReadings.reduce((sum, r) => sum + r.temperature, 0) / previousReadings.length 
-                        : latest.temperature;
+                        ? previousReadings.reduce((sum, r) => sum + r.voltage, 0) / previousReadings.length 
+                        : latest.voltage;
                     const avgPrevHum = previousReadings.length > 0 
-                        ? previousReadings.reduce((sum, r) => sum + r.humidity, 0) / previousReadings.length 
-                        : latest.humidity;
+                        ? previousReadings.reduce((sum, r) => sum + r.current, 0) / previousReadings.length 
+                        : latest.current;
                     const avgPrevPres = previousReadings.length > 0 
-                        ? previousReadings.reduce((sum, r) => sum + r.pressure, 0) / previousReadings.length 
-                        : latest.pressure;
+                        ? previousReadings.reduce((sum, r) => sum + r.power, 0) / previousReadings.length 
+                        : latest.power;
 
-                    document.getElementById('temp-val').innerText = latest.temperature.toFixed(1);
-                    document.getElementById('hum-val').innerText = latest.humidity.toFixed(1);
-                    document.getElementById('pres-val').innerText = latest.pressure.toFixed(0);
-                    document.getElementById('hi-val').innerText = latest.heat_index.toFixed(1);
+                    document.getElementById('volt-val').innerText = latest.voltage.toFixed(1);
+                    document.getElementById('curr-val').innerText = (latest.current / 1000.0).toFixed(2);
+                    document.getElementById('pow-val').innerText = (latest.power / 1000.0).toFixed(1);
+                    
+                    let percent = ((latest.voltage - 22.0) / (28.4 - 22.0)) * 100.0;
+                    if (percent > 100.0) percent = 100.0;
+                    if (percent < 0.0) percent = 0.0;
+                    document.getElementById('pct-val').innerText = percent.toFixed(1);
+
 
                     // Tendencias basadas en promedios
-                    updateTrend('temp', latest.temperature, avgPrevTemp);
-                    updateTrend('hum', latest.humidity, avgPrevHum);
-                    updateTrend('pres', latest.pressure, avgPrevPres);
+                    updateTrend('volt', latest.voltage, avgPrevTemp);
+                    updateTrend('curr', latest.current, avgPrevHum);
+                    updateTrend('pow', latest.power, avgPrevPres);
 
-                    let dewPoint = latest.dew_point;
-                    if (dewPoint === undefined || dewPoint === null) {
-                        const a = 17.625;
-                        const b = 243.04;
-                        const alpha = Math.log(latest.humidity / 100) + (a * latest.temperature) / (b + latest.temperature);
-                        dewPoint = (b * alpha) / (a - alpha);
-                    }
-                    document.getElementById('dp-val').innerText = dewPoint.toFixed(1);
+                    
 
-                    const getDp = (r) => {
-                        if (r.dew_point !== undefined && r.dew_point !== null) return r.dew_point;
-                        const a = 17.625; const b = 243.04;
-                        const alpha = Math.log(r.humidity / 100) + (a * r.temperature) / (b + r.temperature);
-                        return (b * alpha) / (a - alpha);
-                    };
 
-                    const avgPrevDp = previousReadings.length > 0
-                        ? previousReadings.reduce((sum, r) => sum + getDp(r), 0) / previousReadings.length 
-                        : dewPoint;
-                    updateTrend('dp', dewPoint, avgPrevDp);
 
-                    // Alertas Críticas (Dinámico)
-                    const tempCard = document.getElementById('temp-card');
-                    const tempThreshold = parseFloat(localStorage.getItem('tempThreshold')) || 40.0;
-                    if (latest.temperature >= tempThreshold) tempCard.classList.add('critical');
-                    else tempCard.classList.remove('critical');
+                    // Alertas Batería (Dinámico - Independiente del BME280)
+                    const voltCard = document.getElementById('volt-card');
+                    const highVoltThreshold = parseFloat(localStorage.getItem('battHighVoltThreshold')) || 29.2;
+                    const lowVoltThreshold = parseFloat(localStorage.getItem('battLowVoltThreshold')) || 22.0;
+                    if (latest.voltage >= highVoltThreshold || latest.voltage <= lowVoltThreshold) voltCard.classList.add('critical');
+                    else voltCard.classList.remove('critical');
 
-                    // Alertas Humedad (Dinámico)
-                    const humCard = document.getElementById('hum-card');
-                    const humThreshold = parseFloat(localStorage.getItem('humThreshold')) || 80.0;
-                    if (latest.humidity >= humThreshold) humCard.classList.add('critical-hum');
-                    else humCard.classList.remove('critical-hum');
+                    // Alerta Sobrecorriente
+                    const currCard = document.getElementById('curr-card');
+                    const currThreshold = parseFloat(localStorage.getItem('battCurrThreshold')) || 20.0;
+                    if ((latest.current / 1000.0) >= currThreshold) currCard.classList.add('critical-hum');
+                    else currCard.classList.remove('critical-hum');
 
                     updateStatusBadge(latest.created_at);
                     globalLastReadingTime = latest.created_at;
@@ -730,8 +517,9 @@
             if (modal.style.display === 'flex') {
                 modal.style.display = 'none';
             } else {
-                document.getElementById('threshold-input').value = localStorage.getItem('tempThreshold') || 40.0;
-                document.getElementById('hum-threshold-input').value = localStorage.getItem('humThreshold') || 80.0;
+                document.getElementById('threshold-input').value = localStorage.getItem('battHighVoltThreshold') || 29.2;
+                document.getElementById('low-volt-threshold-input').value = localStorage.getItem('battLowVoltThreshold') || 22.0;
+                document.getElementById('curr-threshold-input').value = localStorage.getItem('battCurrThreshold') || 20.0;
                 updateNotificationUI();
                 modal.style.display = 'flex';
             }
@@ -784,26 +572,38 @@
         function checkThresholdsForNotifications(data) {
             if (Notification.permission !== "granted") return;
             
-            const tempThreshold = parseFloat(localStorage.getItem('tempThreshold')) || 40.0;
-            const humThreshold = parseFloat(localStorage.getItem('humThreshold')) || 80.0;
+            const highVoltThreshold = parseFloat(localStorage.getItem('battHighVoltThreshold')) || 29.2;
+            const lowVoltThreshold = parseFloat(localStorage.getItem('battLowVoltThreshold')) || 22.0;
+            const currThreshold = parseFloat(localStorage.getItem('battCurrThreshold')) || 20.0;
             const now = Date.now();
+            const currentAmps = data.current / 1000.0;
 
-            // Notificación de Temperatura
-            if (data.temperature >= tempThreshold && (now - lastNotifiedTime.temp) > NOTIF_COOLDOWN) {
-                new Notification("⚠️ Alerta de Temperatura", {
-                    body: `La temperatura ha alcanzado ${data.temperature.toFixed(1)}°C (Umbral: ${tempThreshold}°C)`,
+            // Notificación de Sobrevoltaje
+            if (data.voltage >= highVoltThreshold && (now - lastNotifiedTime.temp) > NOTIF_COOLDOWN) {
+                new Notification("⚡ Alerta de Sobrevoltaje", {
+                    body: `Voltaje: ${data.voltage.toFixed(1)}V — supera el umbral de ${highVoltThreshold}V`,
                     icon: "/favicon.ico",
-                    tag: "temp-alert"
+                    tag: "batt-high-volt"
                 });
                 lastNotifiedTime.temp = now;
             }
 
-            // Notificación de Humedad
-            if (data.humidity >= humThreshold && (now - lastNotifiedTime.hum) > NOTIF_COOLDOWN) {
-                new Notification("💧 Alerta de Humedad", {
-                    body: `La humedad ha alcanzado ${data.humidity.toFixed(1)}% (Umbral: ${humThreshold}%)`,
+            // Notificación de Bajovoltaje
+            if (data.voltage > 0 && data.voltage <= lowVoltThreshold && (now - lastNotifiedTime.temp) > NOTIF_COOLDOWN) {
+                new Notification("🪫 Alerta de Batería Baja", {
+                    body: `Voltaje: ${data.voltage.toFixed(1)}V — por debajo del umbral de ${lowVoltThreshold}V`,
                     icon: "/favicon.ico",
-                    tag: "hum-alert"
+                    tag: "batt-low-volt"
+                });
+                lastNotifiedTime.temp = now;
+            }
+
+            // Notificación de Sobrecorriente
+            if (currentAmps >= currThreshold && (now - lastNotifiedTime.hum) > NOTIF_COOLDOWN) {
+                new Notification("🔌 Alerta de Sobrecorriente", {
+                    body: `Corriente: ${currentAmps.toFixed(2)}A — supera el umbral de ${currThreshold}A`,
+                    icon: "/favicon.ico",
+                    tag: "batt-overcurr"
                 });
                 lastNotifiedTime.hum = now;
             }
@@ -821,7 +621,7 @@
 
         async function updateStats(isCustomRange = false) {
             try {
-                let url = '/api/readings/stats';
+                let url = '/api/battery/stats';
                 if (isCustomRange) {
                     const start = document.getElementById('stats-start-date').value;
                     const end = document.getElementById('stats-end-date').value;
@@ -847,13 +647,7 @@
                         countEl.innerText = `${stats.count.toLocaleString()} registros`;
                     }
 
-                    const fields = [
-                        'min-temp', 'max-temp', 'avg-temp', 'med-temp', 'rng-temp',
-                        'min-hum', 'max-hum', 'avg-hum', 'med-hum', 'rng-hum',
-                        'min-pres', 'max-pres', 'avg-pres', 'med-pres', 'rng-pres',
-                        'min-hi', 'max-hi', 'avg-hi',
-                        'min-dp', 'max-dp', 'avg-dp'
-                    ];
+                    const fields = ['min-volt', 'max-volt', 'avg-volt', 'med-volt', 'rng-volt', 'min-curr', 'max-curr', 'avg-curr', 'med-curr', 'rng-curr', 'min-pow', 'max-pow', 'avg-pow', 'med-pow', 'rng-pow'];
 
                     fields.forEach(field => {
                         const el = document.getElementById(`stat-${prefix}-${field}`);
@@ -867,9 +661,15 @@
                             return;
                         }
 
-                        if (field.includes('temp') || field.includes('hum') || field.includes('hi') || field.includes('dp')) {
-                            const unit = (field.includes('temp') || field.includes('hi') || field.includes('dp')) ? '°C' : '%';
-                            el.innerText = value.toFixed(field.includes('rng') ? 2 : 1) + unit;
+                        
+                        if (field.includes('volt') || field.includes('curr') || field.includes('pow')) {
+                            
+                            let unit = '';
+                            if (field.includes('volt')) unit = 'V';
+                            if (field.includes('curr')) { unit = 'A'; value = value / 1000.0; } 
+                            if (field.includes('pow')) { unit = 'W'; value = value / 1000.0; }
+
+                            el.innerText = value.toFixed(1) + unit;
                             
                             // Add timestamps if available for min/max
                             if (field.startsWith('min') || field.startsWith('max')) {
@@ -881,20 +681,18 @@
                                     el.style.borderBottom = '1px dotted rgba(255,255,255,0.3)';
                                 }
                             }
-                        } else {
-                            el.innerText = value.toFixed(field.includes('rng') ? 1 : 0) + ' hPa';
                         }
                     });
 
                     // Update Stability (Standard Deviation)
-                    ['temp', 'hum'].forEach(type => {
+                    ['volt', 'curr'].forEach(type => {
                         const stdEl = document.getElementById(`stat-${prefix}-std-${type}`);
                         if (stdEl && stats[`std_${type}`] !== undefined) {
                             const val = stats[`std_${type}`];
                             let label = 'Estable';
                             let color = '#10b981';
-                            if (val > (type === 'temp' ? 2 : 5)) { label = 'Inestable'; color = '#f43f5e'; }
-                            else if (val > (type === 'temp' ? 0.5 : 2)) { label = 'Variable'; color = '#f59e0b'; }
+                            if (val > (type === 'volt' ? 0.5 : 2000)) { label = 'Inestable'; color = '#f43f5e'; }
+                            else if (val > (type === 'volt' ? 0.2 : 500)) { label = 'Variable'; color = '#f59e0b'; }
                             
                             stdEl.innerHTML = `<span style="color: ${color}; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">${label}</span>`;
                             stdEl.title = `Desviación Estándar: ${val.toFixed(2)}`;
@@ -910,7 +708,7 @@
                 const fetchExtra = async (rangeLabel, hours) => {
                     const start = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
                     const end = new Date().toISOString();
-                    const res = await fetch(`/api/readings/stats?startDate=${start}&endDate=${end}`);
+                    const res = await fetch(`/api/battery/stats?startDate=${start}&endDate=${end}`);
                     const d = await res.json();
                     updateBox(rangeLabel, d.range);
                 };
@@ -957,10 +755,12 @@
         }
 
         function saveSettings() {
-            const tempVal = document.getElementById('threshold-input').value;
-            const humVal = document.getElementById('hum-threshold-input').value;
-            localStorage.setItem('tempThreshold', tempVal);
-            localStorage.setItem('humThreshold', humVal);
+            const highVoltVal = document.getElementById('threshold-input').value;
+            const lowVoltVal = document.getElementById('low-volt-threshold-input').value;
+            const currVal = document.getElementById('curr-threshold-input').value;
+            localStorage.setItem('battHighVoltThreshold', highVoltVal);
+            localStorage.setItem('battLowVoltThreshold', lowVoltVal);
+            localStorage.setItem('battCurrThreshold', currVal);
             
             // Reiniciar el cooldown de notificaciones al cambiar umbrales
             lastNotifiedTime = { temp: 0, hum: 0 };
@@ -1012,22 +812,19 @@
         function updateMinMaxStats(readings) {
             if (!readings || readings.length === 0) return;
             
-            const temps = readings.map(r => r.temperature);
-            const hums = readings.map(r => r.humidity);
-            const press = readings.map(r => r.pressure);
-            const dps = readings.map(r => r.dew_point).filter(v => v !== null && v !== undefined);
-
-            document.getElementById('temp-min').innerText = Math.min(...temps).toFixed(1) + '°';
-            document.getElementById('temp-max').innerText = Math.max(...temps).toFixed(1) + '°';
-            document.getElementById('hum-min').innerText = Math.min(...hums).toFixed(1) + '%';
-            document.getElementById('hum-max').innerText = Math.max(...hums).toFixed(1) + '%';
-            document.getElementById('pres-min').innerText = Math.min(...press).toFixed(0);
-            document.getElementById('pres-max').innerText = Math.max(...press).toFixed(0);
+            const volts = readings.map(r => r.voltage);
+            const currs = readings.map(r => r.current / 1000.0);
+            const pows = readings.map(r => r.power / 1000.0);
             
-            if (dps.length > 0) {
-                document.getElementById('dp-min').innerText = Math.min(...dps).toFixed(1) + '°';
-                document.getElementById('dp-max').innerText = Math.max(...dps).toFixed(1) + '°';
-            }
+
+            document.getElementById('volt-min').innerText = Math.min(...volts).toFixed(1) + '°';
+            document.getElementById('volt-max').innerText = Math.max(...volts).toFixed(1) + '°';
+            document.getElementById('curr-min').innerText = Math.min(...currs).toFixed(1) + '%';
+            document.getElementById('curr-max').innerText = Math.max(...currs).toFixed(1) + '%';
+            document.getElementById('pow-min').innerText = Math.min(...pows).toFixed(0);
+            document.getElementById('pow-max').innerText = Math.max(...pows).toFixed(0);
+            
+            
         }
 
         function updateTrend(type, newVal, oldVal) {
@@ -1048,7 +845,7 @@
         // --- Socket.io Real-Time Updates ---
         const socket = io();
 
-        socket.on('newReading', (data) => {
+        socket.on('newBatteryReading', (data) => {
             console.log('Update recibido vía Socket.io:', data);
             
             // 1. Actualizar Tarjetas (con tendencia basada en los últimos datos)
@@ -1056,40 +853,26 @@
             if (latestReadings.length > 0) {
                 // Tomar los últimos 4 del historial + el nuevo dato para el promedio
                 const last4 = latestReadings.slice(-4);
-                const avgTemp = last4.reduce((sum, r) => sum + r.temperature, 0) / last4.length;
-                const avgHum = last4.reduce((sum, r) => sum + r.humidity, 0) / last4.length;
-                const avgPres = last4.reduce((sum, r) => sum + r.pressure, 0) / last4.length;
+                const avgTemp = last4.reduce((sum, r) => sum + r.voltage, 0) / last4.length;
+                const avgHum = last4.reduce((sum, r) => sum + r.current, 0) / last4.length;
+                const avgPres = last4.reduce((sum, r) => sum + r.power, 0) / last4.length;
 
-                updateTrend('temp', data.temperature, avgTemp);
-                updateTrend('hum', data.humidity, avgHum);
-                updateTrend('pres', data.pressure, avgPres);
+                updateTrend('volt', data.voltage, avgTemp);
+                updateTrend('curr', data.current, avgHum);
+                updateTrend('pow', data.power, avgPres);
 
-                // Calcular Punto de Rocio si no existe en los datos
-                const getDp = (r) => {
-                    if (r.dew_point !== undefined && r.dew_point !== null) return r.dew_point;
-                    const a = 17.625; const b = 243.04;
-                    const alpha = Math.log(r.humidity / 100) + (a * r.temperature) / (b + r.temperature);
-                    return (b * alpha) / (a - alpha);
-                };
-
-                const currentDp = getDp(data);
-                const avgDp = last4.reduce((sum, r) => sum + getDp(r), 0) / last4.length;
-                updateTrend('dp', currentDp, avgDp);
             }
 
-            document.getElementById('temp-val').innerText = data.temperature.toFixed(1);
-            document.getElementById('hum-val').innerText = data.humidity.toFixed(1);
-            document.getElementById('pres-val').innerText = data.pressure.toFixed(0);
-            document.getElementById('hi-val').innerText = data.heat_index.toFixed(1);
-            let dewPoint = data.dew_point;
-            if (dewPoint === undefined || dewPoint === null) {
-                // Fallback calculation in frontend
-                const a = 17.625;
-                const b = 243.04;
-                const alpha = Math.log(data.humidity / 100) + (a * data.temperature) / (b + data.temperature);
-                dewPoint = (b * alpha) / (a - alpha);
-            }
-            document.getElementById('dp-val').innerText = dewPoint.toFixed(1);
+            document.getElementById('volt-val').innerText = data.voltage.toFixed(1);
+            document.getElementById('curr-val').innerText = (data.current / 1000.0).toFixed(2);
+            document.getElementById('pow-val').innerText = (data.power / 1000.0).toFixed(1);
+            
+            let percent = ((data.voltage - 22.0) / (28.4 - 22.0)) * 100.0;
+            if (percent > 100.0) percent = 100.0;
+            if (percent < 0.0) percent = 0.0;
+            document.getElementById('pct-val').innerText = percent.toFixed(1);
+
+            
             
             // Re-calcular Min/Max si es tiempo real
             if (!document.getElementById('start-date').value && window.currentData) {
@@ -1098,16 +881,17 @@
                 updateMinMaxStats(window.currentData);
             }
 
-            // Alertas Críticas (Dinámico)
-            const tempCard = document.getElementById('temp-card');
-            const tempThreshold = parseFloat(localStorage.getItem('tempThreshold')) || 40.0;
-            if (data.temperature >= tempThreshold) tempCard.classList.add('critical');
-            else tempCard.classList.remove('critical');
+            // Alertas Batería (Dinámico - Independiente del BME280)
+            const voltCard = document.getElementById('volt-card');
+            const highVoltThreshold = parseFloat(localStorage.getItem('battHighVoltThreshold')) || 29.2;
+            const lowVoltThreshold = parseFloat(localStorage.getItem('battLowVoltThreshold')) || 22.0;
+            if (data.voltage >= highVoltThreshold || (data.voltage > 0 && data.voltage <= lowVoltThreshold)) voltCard.classList.add('critical');
+            else voltCard.classList.remove('critical');
 
-            const humCard = document.getElementById('hum-card');
-            const humThreshold = parseFloat(localStorage.getItem('humThreshold')) || 80.0;
-            if (data.humidity >= humThreshold) humCard.classList.add('critical-hum');
-            else humCard.classList.remove('critical-hum');
+            const currCard = document.getElementById('curr-card');
+            const currThreshold = parseFloat(localStorage.getItem('battCurrThreshold')) || 20.0;
+            if ((data.current / 1000.0) >= currThreshold) currCard.classList.add('critical-hum');
+            else currCard.classList.remove('critical-hum');
 
             // Status Online & Actualizar Tiempo
             updateStatusBadge(data.created_at);
@@ -1122,9 +906,9 @@
                 const label = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 
                 chart.data.labels.push(label);
-                chart.data.datasets[0].data.push(data.temperature);
-                chart.data.datasets[1].data.push(data.humidity);
-                chart.data.datasets[2].data.push(data.pressure);
+                chart.data.datasets[0].data.push(data.voltage);
+                chart.data.datasets[1].data.push(data.current / 1000.0);
+                chart.data.datasets[2].data.push(data.power / 1000.0);
 
                 // Mantener el límite de puntos actual
                 if (chart.data.labels.length > 144) {
@@ -1159,7 +943,7 @@
             }
 
             // Headers con comillas para evitar problemas de encoding y separacion
-            const headers = ['"Fecha y Hora"', '"Temperatura (°C)"', '"Humedad (%)"', '"Presion (hPa)"', '"Sensacion (°C)"', '"Punto Rocio (°C)"'];
+            const headers = ['"Fecha y Hora"', '"voltaje (°C)"', '"Humedad (%)"', '"Presion (hPa)"', '"Sensacion (°C)"', '"Punto Rocio (°C)"'];
             
             const rows = window.currentData.map(r => {
                 const dateStr = r.created_at.includes('Z') || r.created_at.includes('+') ? r.created_at : r.created_at.replace(' ', 'T') + 'Z';
@@ -1167,9 +951,9 @@
                 
                 return [
                     `"${formattedDate}"`,
-                    `"${r.temperature.toFixed(2)}"`,
-                    `"${r.humidity.toFixed(2)}"`,
-                    `"${r.pressure.toFixed(2)}"`,
+                    `"${r.voltage.toFixed(2)}"`,
+                    `"${r.current.toFixed(2)}"`,
+                    `"${r.power.toFixed(2)}"`,
                     `"${r.heat_index.toFixed(2)}"`,
                     `"${(r.dew_point || 0).toFixed(2)}"`
                 ];

@@ -29,6 +29,11 @@ app.get('/kiosk', (req, res) => {
     res.sendFile(__dirname + '/public/kiosk.html');
 });
 
+// Ruta para Modo Quiosco - Batería
+app.get('/kiosk-battery', (req, res) => {
+    res.sendFile(__dirname + '/public/kiosk-battery.html');
+});
+
 // Socket.io Connection
 io.on('connection', (socket) => {
     console.log('Cliente conectado:', socket.id);
@@ -220,6 +225,166 @@ app.get('/api/readings/stats', async (req, res) => {
                     (SELECT created_at FROM readings WHERE humidity = (SELECT MIN(humidity) FROM readings WHERE created_at BETWEEN $1 AND $2) AND created_at BETWEEN $1 AND $2 LIMIT 1) as min_hum_at,
                     (SELECT created_at FROM readings WHERE humidity = (SELECT MAX(humidity) FROM readings WHERE created_at BETWEEN $1 AND $2) AND created_at BETWEEN $1 AND $2 LIMIT 1) as max_hum_at
                 FROM readings
+                WHERE created_at BETWEEN $1 AND $2
+            `;
+            rangeParams = [new Date(startDate), new Date(endDate)];
+        }
+
+        const queries = [
+            db.query(globalStatsQuery),
+            db.query(last24hStatsQuery)
+        ];
+        if (rangeStatsQuery) queries.push(db.query(rangeStatsQuery, rangeParams));
+
+        const results = await Promise.all(queries);
+
+        res.json({
+            global: results[0].rows[0],
+            last24h: results[1].rows[0],
+            range: rangeStatsQuery ? results[2].rows[0] : null
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Database error" });
+    }
+});
+
+// --- RUTAS DE BATERÍA ---
+
+// POST route to receive data from ESP8266 (INA226)
+app.post('/api/battery', async (req, res) => {
+    const { voltage, current, power, timestamp } = req.body;
+
+    if (voltage === undefined || current === undefined || power === undefined) {
+        return res.status(400).json({ error: "Missing data" });
+    }
+
+    try {
+        let finalTimestamp = timestamp;
+        if (!finalTimestamp || finalTimestamp < 1000000000) {
+            finalTimestamp = Math.floor(Date.now() / 1000);
+        }
+
+        const queryText = 'INSERT INTO battery_readings(voltage, current, power, timestamp) VALUES($1, $2, $3, $4) RETURNING *';
+        const values = [voltage, current, power, finalTimestamp];
+        const result = await db.query(queryText, values);
+
+        const newReading = result.rows[0];
+
+        // Emitír el nuevo dato por Socket.io
+        io.emit('newBatteryReading', newReading);
+        console.log('>>> Nuevo dato de batería emitido:', newReading.voltage, 'V');
+
+        res.status(201).json(newReading);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Database error" });
+    }
+});
+
+// GET route to fetch latest battery reading
+app.get('/api/battery/latest', async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM battery_readings ORDER BY created_at DESC LIMIT 1');
+        res.json(result.rows[0] || {});
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Database error" });
+    }
+});
+
+// GET route to fetch battery reading list
+app.get('/api/battery', async (req, res) => {
+    try {
+        const { startDate, endDate, limit } = req.query;
+        let queryText;
+        const params = [];
+
+        if (startDate && endDate) {
+            queryText = 'SELECT * FROM battery_readings WHERE created_at BETWEEN $1 AND $2 ORDER BY created_at DESC';
+            params.push(new Date(startDate), new Date(endDate));
+        } else {
+            queryText = 'SELECT * FROM battery_readings ORDER BY created_at DESC';
+            if (limit) {
+                params.push(parseInt(limit));
+                queryText += ` LIMIT $${params.length}`;
+            } else {
+                queryText += ' LIMIT 100';
+            }
+        }
+
+        const result = await db.query(queryText, params);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Database error" });
+    }
+});
+
+// GET route for statistics (Battery)
+app.get('/api/battery/stats', async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+
+        const globalStatsQuery = `
+            SELECT 
+                COUNT(*) as count,
+                MIN(voltage) as min_volt, MAX(voltage) as max_volt, AVG(voltage) as avg_volt, 
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY voltage) as med_volt,
+                STDDEV(voltage) as std_volt, (MAX(voltage) - MIN(voltage)) as rng_volt,
+                MIN(current) as min_curr, MAX(current) as max_curr, AVG(current) as avg_curr,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY current) as med_curr,
+                STDDEV(current) as std_curr, (MAX(current) - MIN(current)) as rng_curr,
+                MIN(power) as min_pow, MAX(power) as max_pow, AVG(power) as avg_pow,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY power) as med_pow,
+                (MAX(power) - MIN(power)) as rng_pow,
+                (SELECT created_at FROM battery_readings WHERE voltage = (SELECT MIN(voltage) FROM battery_readings) LIMIT 1) as min_volt_at,
+                (SELECT created_at FROM battery_readings WHERE voltage = (SELECT MAX(voltage) FROM battery_readings) LIMIT 1) as max_volt_at,
+                (SELECT created_at FROM battery_readings WHERE current = (SELECT MIN(current) FROM battery_readings) LIMIT 1) as min_curr_at,
+                (SELECT created_at FROM battery_readings WHERE current = (SELECT MAX(current) FROM battery_readings) LIMIT 1) as max_curr_at
+            FROM battery_readings
+        `;
+
+        const last24hStatsQuery = `
+            SELECT 
+                COUNT(*) as count,
+                MIN(voltage) as min_volt, MAX(voltage) as max_volt, AVG(voltage) as avg_volt, 
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY voltage) as med_volt,
+                STDDEV(voltage) as std_volt, (MAX(voltage) - MIN(voltage)) as rng_volt,
+                MIN(current) as min_curr, MAX(current) as max_curr, AVG(current) as avg_curr,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY current) as med_curr,
+                STDDEV(current) as std_curr, (MAX(current) - MIN(current)) as rng_curr,
+                MIN(power) as min_pow, MAX(power) as max_pow, AVG(power) as avg_pow,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY power) as med_pow,
+                (MAX(power) - MIN(power)) as rng_pow,
+                (SELECT created_at FROM battery_readings WHERE voltage = (SELECT MIN(voltage) FROM battery_readings WHERE created_at >= NOW() - INTERVAL '24 hours') AND created_at >= NOW() - INTERVAL '24 hours' LIMIT 1) as min_volt_at,
+                (SELECT created_at FROM battery_readings WHERE voltage = (SELECT MAX(voltage) FROM battery_readings WHERE created_at >= NOW() - INTERVAL '24 hours') AND created_at >= NOW() - INTERVAL '24 hours' LIMIT 1) as max_volt_at,
+                (SELECT created_at FROM battery_readings WHERE current = (SELECT MIN(current) FROM battery_readings WHERE created_at >= NOW() - INTERVAL '24 hours') AND created_at >= NOW() - INTERVAL '24 hours' LIMIT 1) as min_curr_at,
+                (SELECT created_at FROM battery_readings WHERE current = (SELECT MAX(current) FROM battery_readings WHERE created_at >= NOW() - INTERVAL '24 hours') AND created_at >= NOW() - INTERVAL '24 hours' LIMIT 1) as max_curr_at
+            FROM battery_readings
+            WHERE created_at >= NOW() - INTERVAL '24 hours'
+        `;
+
+        let rangeStatsQuery = null;
+        let rangeParams = [];
+        if (startDate && endDate) {
+            rangeStatsQuery = `
+                SELECT 
+                    COUNT(*) as count,
+                    MIN(voltage) as min_volt, MAX(voltage) as max_volt, AVG(voltage) as avg_volt, 
+                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY voltage) as med_volt,
+                    STDDEV(voltage) as std_volt, (MAX(voltage) - MIN(voltage)) as rng_volt,
+                    MIN(current) as min_curr, MAX(current) as max_curr, AVG(current) as avg_curr,
+                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY current) as med_curr,
+                    STDDEV(current) as std_curr, (MAX(current) - MIN(current)) as rng_curr,
+                    MIN(power) as min_pow, MAX(power) as max_pow, AVG(power) as avg_pow,
+                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY power) as med_pow,
+                    (MAX(power) - MIN(power)) as rng_pow,
+                    (SELECT created_at FROM battery_readings WHERE voltage = (SELECT MIN(voltage) FROM battery_readings WHERE created_at BETWEEN $1 AND $2) AND created_at BETWEEN $1 AND $2 LIMIT 1) as min_volt_at,
+                    (SELECT created_at FROM battery_readings WHERE voltage = (SELECT MAX(voltage) FROM battery_readings WHERE created_at BETWEEN $1 AND $2) AND created_at BETWEEN $1 AND $2 LIMIT 1) as max_volt_at,
+                    (SELECT created_at FROM battery_readings WHERE current = (SELECT MIN(current) FROM battery_readings WHERE created_at BETWEEN $1 AND $2) AND created_at BETWEEN $1 AND $2 LIMIT 1) as min_curr_at,
+                    (SELECT created_at FROM battery_readings WHERE current = (SELECT MAX(current) FROM battery_readings WHERE created_at BETWEEN $1 AND $2) AND created_at BETWEEN $1 AND $2 LIMIT 1) as max_curr_at
+                FROM battery_readings
                 WHERE created_at BETWEEN $1 AND $2
             `;
             rangeParams = [new Date(startDate), new Date(endDate)];
