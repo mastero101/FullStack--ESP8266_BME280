@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiosk - Solar Monitor</title>
+    <script src="lib/socket.io.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-temp: #fbbf24; /* Voltaje */
+            --accent-pres: #34d399; /* Potencia */
+            --accent-hi: #fbbf24; /* Eficiencia */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            cursor: none; /* Ocultar cursor para modo quiosco */
+        }
+
+        .kiosk-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        .kiosk-card {
+            background: var(--card-bg);
+            border-radius: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kiosk-card.full-width {
+            grid-column: span 2;
+        }
+
+        .label {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .value {
+            font-size: 8rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .unit {
+            font-size: 3rem;
+            font-weight: 400;
+            color: var(--text-muted);
+            margin-left: 0.5rem;
+        }
+
+        #temp-card .value { color: var(--accent-temp); }
+        #hum-card .value { color: var(--accent-hum); }
+        #pres-card .value { color: var(--accent-pres); }
+        #hi-card .value { color: #f87171; }
+
+        .footer {
+            padding: 1rem 2rem;
+            background: rgba(0, 0, 0, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.2rem;
+            color: var(--text-muted);
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ef4444;
+            display: inline-block;
+            margin-right: 8px;
+            box-shadow: 0 0 10px #ef4444;
+        }
+
+        .status-dot.online {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+
+        /* Animación de alerta */
+        @keyframes pulse {
+            0% { background: var(--card-bg); }
+            50% { background: rgba(244, 63, 94, 0.2); border-color: var(--accent-temp); }
+            100% { background: var(--card-bg); }
+        }
+
+        .critical {
+            animation: pulse 2s infinite;
+        }
+
+        @media (max-aspect-ratio: 1/1) {
+            .value { font-size: 6rem; }
+            .kiosk-grid { grid-template-columns: 1fr; grid-template-rows: repeat(4, 1fr); }
+            .kiosk-card.full-width { grid-column: span 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="kiosk-grid">
+        <div class="kiosk-card" id="temp-card">
+            <div class="label">Voltaje</div>
+            <div>
+                <span class="value" id="temp-val">--.-</span>
+                <span class="unit">V</span>
+            </div>
+        </div>
+        <div class="kiosk-card" id="hum-card">
+            <div class="label">Corriente</div>
+            <div>
+                <span class="value" id="hum-val">--</span>
+                <span class="unit">A</span>
+            </div>
+        </div>
+        <div class="kiosk-card" id="pres-card">
+            <div class="label">Potencia</div>
+            <div>
+                <span class="value" id="pres-val">----</span>
+                <span class="unit">W</span>
+            </div>
+        </div>
+        <div class="kiosk-card" id="hi-card">
+            <div class="label">Eficiencia</div>
+            <div>
+                <span class="value" id="hi-val">--.-</span>
+                <span class="unit">%</span>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); position: absolute; bottom: 1rem;">(Panel Solar)</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div style="display: flex; align-items: center; gap: 1.5rem;">
+            <button onclick="window.location.href='/battery.html'" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; font-size: 0.9rem; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+                ← Volver a Dashboard Solar
+            </button>
+            <div>
+                <span id="status-dot" class="status-dot"></span>
+                <span id="status-text">Desconectado</span>
+            </div>
+        </div>
+        <div id="clock">00:00:00</div>
+        <div>MASTERO IoT KIOSK</div>
+    </div>
+
+    <script>
+        const socket = io();
+
+        // Reloj
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString();
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Cargar últimos datos al iniciar
+        async function fetchLatest() {
+            try {
+                const res = await fetch('/api/solar/latest');
+                const data = await res.json();
+                if (data.voltage !== undefined) updateUI(data);
+            } catch (e) { console.error(e); }
+        }
+
+        function updateUI(data) {
+            document.getElementById('temp-val').innerText = data.voltage.toFixed(1);
+            document.getElementById('hum-val').innerText = (data.current / 1000.0).toFixed(2);
+            document.getElementById('pres-val').innerText = (data.power / 1000.0).toFixed(0);
+            
+            document.getElementById('hi-val').innerText = "100"; // Placeholder for efficiency logic
+
+            // Status
+            const dot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            dot.classList.add('online');
+            statusText.innerText = 'En Línea';
+
+            // Alerta Temperatura (Simple)
+            if (data.voltage < 24.0) { // Ejemplo, alerta de bateria baja en 8S
+                document.getElementById('temp-card').classList.add('critical');
+            } else {
+                document.getElementById('temp-card').classList.remove('critical');
+            }
+        }
+
+        socket.on('newSolarReading', (data) => {
+            updateUI(data);
+        });
+
+        socket.on('connect', () => {
+            document.getElementById('status-dot').classList.add('online');
+            document.getElementById('status-text').innerText = 'En Línea';
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('status-dot').classList.remove('online');
+            document.getElementById('status-text').innerText = 'Desconectado';
+        });
+
+        fetchLatest();
+        
+        // Auto-refresh de página cada 1 hora para limpiar memoria en tablets viejas
+        setTimeout(() => location.reload(), 3600000);
+    </script>
+</body>
+</html>

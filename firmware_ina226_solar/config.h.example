@@ -1,0 +1,17 @@
+/*
+  Example Configuration file for ESP8266
+  Rename this file to config.h and fill in your credentials.
+*/
+
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// Network credentials
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+
+// Backend Configuration
+// Use the IP of your computer where the Node.js server is running
+const char* serverName = "http://YOUR_COMPUTER_IP:7755/api/readings"; 
+
+#endif

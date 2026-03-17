@@ -42,6 +42,15 @@ const initDb = async () => {
       timestamp BIGINT NOT NULL,
       created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS solar_readings (
+      id SERIAL PRIMARY KEY,
+      voltage FLOAT NOT NULL,
+      current FLOAT NOT NULL,
+      power FLOAT NOT NULL,
+      timestamp BIGINT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    );
   `;
   try {
     await pool.query(queryText);

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IoT Dashboard - Battery Monitor</title>
+    <title>IoT Dashboard - Solar Monitor</title>
     <link rel="stylesheet" href="style.css">
     <script src="lib/chart.min.js"></script>
     <script src="lib/lucide.min.js"></script>
@@ -11,11 +11,11 @@
 </head>
 
 <body>
-    <!-- Modal de Ajustes Batería (Independiente del BME280) -->
+    <!-- Modal de Ajustes Solar (Independiente) -->
     <div id="settings-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>⚡ Ajustes de Alerta - Batería</h2>
+                <h2>☀️ Ajustes de Monitoreo - Solar</h2>
                 <button class="btn-icon" onclick="toggleSettings()" style="padding: 0.4rem;"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
             </div>
             <div class="modal-body">
@@ -26,7 +26,7 @@
                         <span>V</span>
                     </div>
                     <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
-                        La tarjeta de Voltaje pulsará en rojo al superar este valor. (8S LiFePO4 máx recomendado: ~29.2V)
+                        La tarjeta de Voltaje pulsará en rojo al superar este valor.
                     </p>
                 </div>
                 <div class="form-group" style="margin-top: 1.5rem;">
@@ -36,7 +36,7 @@
                         <span>V</span>
                     </div>
                     <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
-                        Alerta cuando el voltaje baje de este nivel. (8S LiFePO4 mín recomendado: ~22.0V)
+                        Alerta cuando el voltaje baje de este nivel.
                     </p>
                 </div>
                 <div class="form-group" style="margin-top: 1.5rem;">
@@ -45,30 +45,10 @@
                         <input type="number" id="curr-threshold-input" value="20" step="0.5" min="0" max="100">
                         <span>A</span>
                     </div>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                        La tarjeta de Corriente pulsará en azul al superar este valor en amperios.
+                    </p>
                 </div>
-                <div class="form-group" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
-                    <div style="flex: 1;">
-                        <label>Capacidad (Ah)</label>
-                        <input type="number" id="batt-capacity-input" value="100" step="1" min="1">
-                    </div>
-                    <div style="flex: 1;">
-                        <label>Voltaje Nom. (V)</label>
-                        <input type="number" id="batt-nom-volt-input" value="24" step="0.1" min="1">
-                    </div>
-                </div>
-                <div class="form-group" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
-                    <div style="flex: 1;">
-                        <label>V. Lleno (100%)</label>
-                        <input type="number" id="batt-full-volt-input" value="28.4" step="0.1">
-                    </div>
-                    <div style="flex: 1;">
-                        <label>V. Vacío (0%)</label>
-                        <input type="number" id="batt-empty-volt-input" value="22.0" step="0.1">
-                    </div>
-                </div>
-                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
-                    Usado para estimar el % SOC y capacidad gastada cuando no hay sensor de corriente.
-                </p>
                 <div class="form-group" style="margin-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;">
                     <label>Notificaciones de Escritorio</label>
                     <div id="notif-status-container" style="display: flex; flex-direction: column; gap: 0.8rem;">
@@ -76,7 +56,7 @@
                             <i data-lucide="bell" style="width: 18px;"></i> Activar Notificaciones
                         </button>
                         <p id="notif-status-text" style="font-size: 0.7rem; color: var(--text-muted); text-align: center;">
-                            Requerido para alertas de batería en segundo plano.
+                            Requerido para alertas de panel solar en segundo plano.
                         </p>
                     </div>
                 </div>
@@ -130,11 +110,6 @@
                     <div class="stat-box">
                         <label>Información</label>
                         <div class="stat-row"><span>Muestras:</span> <b id="stat-1h-count">--</b></div>
-                        <div class="stat-row"><span>Cargado:</span> <b id="stat-1h-charged">--</b></div>
-                        <div class="stat-row"><span>Descargado:</span> <b id="stat-1h-discharged">--</b></div>
-                        <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;">
-                            <span>Ah Gastados (V):</span> <b id="stat-1h-spent-ah" style="color: var(--secondary);">--</b>
-                        </div>
                     </div>
                 </div>
                 <div id="stats-content-24h" class="stats-grid">
@@ -167,14 +142,6 @@
                     <div class="stat-box">
                         <label>Información</label>
                         <div class="stat-row"><span>Muestras:</span> <b id="stat-24h-count">--</b></div>
-                        <div class="stat-row"><span>Cargado:</span> <b id="stat-24h-charged">--</b></div>
-                        <div class="stat-row"><span>Descargado:</span> <b id="stat-24h-discharged">--</b></div>
-                        <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;">
-                            <span>Ciclos Est.:</span> <b id="stat-24h-cycles" style="color: var(--warning);">--</b>
-                        </div>
-                        <div class="stat-row">
-                            <span>Ah Gastados (V):</span> <b id="stat-24h-spent-ah" style="color: var(--secondary);">--</b>
-                        </div>
                     </div>
                 </div>
                 <div id="stats-content-7d" class="stats-grid" style="display: none;">
@@ -207,14 +174,6 @@
                     <div class="stat-box">
                         <label>Información</label>
                         <div class="stat-row"><span>Muestras:</span> <b id="stat-7d-count">--</b></div>
-                        <div class="stat-row"><span>Cargado:</span> <b id="stat-7d-charged">--</b></div>
-                        <div class="stat-row"><span>Descargado:</span> <b id="stat-7d-discharged">--</b></div>
-                        <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;">
-                            <span>Ciclos Est.:</span> <b id="stat-7d-cycles" style="color: var(--warning);">--</b>
-                        </div>
-                        <div class="stat-row">
-                            <span>Ah Gastados (V):</span> <b id="stat-7d-spent-ah" style="color: var(--secondary);">--</b>
-                        </div>
                     </div>
                 </div>
                 <div id="stats-content-global" class="stats-grid" style="display: none;">
@@ -247,14 +206,6 @@
                     <div class="stat-box">
                         <label>Información</label>
                         <div class="stat-row"><span>Muestras:</span> <b id="stat-global-count">--</b></div>
-                        <div class="stat-row"><span>Cargado:</span> <b id="stat-global-charged">--</b></div>
-                        <div class="stat-row"><span>Descargado:</span> <b id="stat-global-discharged">--</b></div>
-                        <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;">
-                            <span>Total Ciclos:</span> <b id="stat-global-cycles" style="color: var(--warning);">--</b>
-                        </div>
-                        <div class="stat-row">
-                            <span>Ah Gastados (V):</span> <b id="stat-global-spent-ah" style="color: var(--secondary);">--</b>
-                        </div>
                     </div>
                 </div>
                 <div id="stats-content-custom" class="stats-container" style="display: none;">
@@ -277,38 +228,16 @@
                             <div class="stat-row"><span>Mín:</span> <b id="stat-range-min-volt">--</b></div>
                             <div class="stat-row"><span>Máx:</span> <b id="stat-range-max-volt">--</b></div>
                             <div class="stat-row"><span>Prom:</span> <b id="stat-range-avg-volt">--</b></div>
-                            <div class="stat-row"><span>Mediana:</span> <b id="stat-range-med-volt">--</b></div>
-                            <div class="stat-row"><span>Rango:</span> <b id="stat-range-rng-volt">--</b></div>
-                            <div class="stat-row"><span>Estabilidad:</span> <b id="stat-range-std-volt">--</b></div>
                         </div>
                         <div class="stat-box">
                             <label>Corriente</label>
                             <div class="stat-row"><span>Mín:</span> <b id="stat-range-min-curr">--</b></div>
                             <div class="stat-row"><span>Máx:</span> <b id="stat-range-max-curr">--</b></div>
                             <div class="stat-row"><span>Prom:</span> <b id="stat-range-avg-curr">--</b></div>
-                            <div class="stat-row"><span>Mediana:</span> <b id="stat-range-med-curr">--</b></div>
-                            <div class="stat-row"><span>Rango:</span> <b id="stat-range-rng-curr">--</b></div>
-                            <div class="stat-row"><span>Estabilidad:</span> <b id="stat-range-std-curr">--</b></div>
-                        </div>
-                        <div class="stat-box">
-                            <label>Potencia</label>
-                            <div class="stat-row"><span>Mín:</span> <b id="stat-range-min-pow">--</b></div>
-                            <div class="stat-row"><span>Máx:</span> <b id="stat-range-max-pow">--</b></div>
-                            <div class="stat-row"><span>Prom:</span> <b id="stat-range-avg-pow">--</b></div>
-                            <div class="stat-row"><span>Mediana:</span> <b id="stat-range-med-pow">--</b></div>
-                            <div class="stat-row"><span>Rango:</span> <b id="stat-range-rng-pow">--</b></div>
                         </div>
                         <div class="stat-box">
                             <label>Información</label>
                             <div class="stat-row"><span>Muestras:</span> <b id="stat-range-count">--</b></div>
-                            <div class="stat-row"><span>Cargado:</span> <b id="stat-range-charged">--</b></div>
-                            <div class="stat-row"><span>Descargado:</span> <b id="stat-range-discharged">--</b></div>
-                            <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;">
-                                <span>Ciclos Est.:</span> <b id="stat-range-cycles" style="color: var(--warning);">--</b>
-                            </div>
-                            <div class="stat-row">
-                                <span>Ah Gastados (V):</span> <b id="stat-range-spent-ah" style="color: var(--secondary);">--</b>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -319,12 +248,12 @@
     <div class="container">
         <header>
             <div>
-                <h1>INA226 Batería</h1>
-                <p style="color: var(--text-muted)">Monitoreo Batería en tiempo real</p>
+                <h1>INA226 Solar</h1>
+                <p style="color: var(--text-muted)">Monitoreo Panel Solar en tiempo real</p>
                 <div class="nav-tabs" style="margin-top: 1rem; display: flex; gap: 0.5rem;">
                     <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/'">Clima</button>
-                    <button class="btn-filter active">Batería</button>
-                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/solar.html'">Solar</button>
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/battery.html'">Batería</button>
+                    <button class="btn-filter active">Solar</button>
                 </div>
             </div>
             <div class="header-actions" style="display: flex; align-items: center; gap: 1rem;">
@@ -335,7 +264,7 @@
                     </div>
                     <span id="last-seen" style="font-size: 0.65rem; color: var(--text-muted); margin-left: 1.1rem;">Visto: --</span>
                 </div>
-                <button class="btn-icon" onclick="window.location.href='/kiosk-battery'" title="Modo Quiosco Batería">
+                <button class="btn-icon" onclick="window.location.href='/kiosk-solar'" title="Modo Quiosco Solar">
                     <i data-lucide="layout-dashboard"></i>
                 </button>
                 <button class="btn-icon" onclick="toggleStats()" title="Estadísticas">
@@ -396,16 +325,16 @@
             </div>
             <div class="card" id="pct-card">
                 <div class="card-label">
-                    <i data-lucide="battery" style="color: #f87171"></i> SOC Estimado
+                    <i data-lucide="sun" style="color: #fbbf24"></i> Rendimiento Solar
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="pct-val">--</span><span class="card-unit">%</span>
+                        <span id="pct-val">--</span><span class="card-unit">W</span>
                     </div>
                     <span id="pct-trend" class="trend-badge"></span>
                 </div>
                 <div class="sub-stats">
-                    <div class="stat-item" style="color: var(--text-muted); font-size: 0.70rem;">8S 25.6V LiFePO4</div>
+                    <div class="stat-item" style="color: var(--text-muted); font-size: 0.70rem;">Generación Estimada</div>
                 </div>
             </div>
 
@@ -452,6 +381,23 @@
     <script>
         // Initialize Lucide Icons
         lucide.createIcons();
+
+        function calculateSolarEstimatedWatts(v) {
+            // Basado en tabla de usuario y ficha técnica IUSASOL 330W (X2 Paneles en paralelo)
+            const numPanels = 2;
+            let wattsPerPanel = 0;
+
+            if (v < 24.0) wattsPerPanel = 0;
+            else if (v < 26.0) wattsPerPanel = (v - 24.0) * 35.0; // 24V(0W) -> 26V(70W)
+            else if (v < 27.0) wattsPerPanel = 70.0 + (v - 26.0) * 30.0; // 26V(70W) -> 27V(100W)
+            else if (v < 29.0) wattsPerPanel = 100.0 + (v - 27.0) * 25.0; // 27V(100W) -> 29V(150W)
+            else if (v < 30.0) wattsPerPanel = 150.0 + (v - 29.0) * 50.0; // 29V(150W) -> 30V(200W)
+            else if (v < 33.6) wattsPerPanel = 200.0 + (v - 30.0) * 36.1; // 30V(200W) -> 33.6V(330W)
+            else if (v < 41.4) wattsPerPanel = 330.0 * (1 - (v - 33.6) / (41.4 - 33.6)); // Caída hacia Voc
+            else wattsPerPanel = 0;
+
+            return wattsPerPanel * numPanels;
+        }
 
         let chart;
         let globalLastReadingTime = null;
@@ -601,7 +547,7 @@
         async function fetchReadings(startDate = null, endDate = null, limit = 144) {
             loadingOverlay.style.display = 'flex';
             try {
-                let url = '/api/battery';
+                let url = '/api/solar';
                 if (startDate && endDate) {
                     url += `?startDate=${startDate}&endDate=${endDate}`;
                 } else {
@@ -625,7 +571,7 @@
                 });
                 chart.data.datasets[0].data = reversed.map(r => r.voltage);
                 chart.data.datasets[1].data = reversed.map(r => r.current / 1000.0);
-                chart.data.datasets[2].data = reversed.map(r => r.power / 1000.0);
+                chart.data.datasets[2].data = reversed.map(r => (r.power > 0 ? r.power / 1000.0 : calculateSolarEstimatedWatts(r.voltage)));
                 
                 // Actualizar gradientes
                 const gradient = ctx.createLinearGradient(0, 0, 0, 400);
@@ -651,7 +597,7 @@
         async function updateLatestCards() {
             try {
                 // Obtenemos los últimos 5 registros para una tendencia más estable
-                const response = await fetch('/api/battery?limit=5');
+                const response = await fetch('/api/solar?limit=5');
                 const readings = await response.json();
 
                 if (readings.length > 0) {
@@ -673,12 +619,8 @@
                     document.getElementById('curr-val').innerText = (latest.current / 1000.0).toFixed(2);
                     document.getElementById('pow-val').innerText = (latest.power / 1000.0).toFixed(1);
                     
-                    const fVolt = parseFloat(localStorage.getItem('battFullVolt')) || 28.4;
-                    const eVolt = parseFloat(localStorage.getItem('battEmptyVolt')) || 22.0;
-                    let percent = ((latest.voltage - eVolt) / (fVolt - eVolt)) * 100.0;
-                    if (percent > 100.0) percent = 100.0;
-                    if (percent < 0.0) percent = 0.0;
-                    document.getElementById('pct-val').innerText = percent.toFixed(1);
+                    const estimatedW = calculateSolarEstimatedWatts(latest.voltage);
+                    document.getElementById('pct-val').innerText = estimatedW.toFixed(0);
 
 
                     // Tendencias basadas en promedios
@@ -719,13 +661,9 @@
             if (modal.style.display === 'flex') {
                 modal.style.display = 'none';
             } else {
-                document.getElementById('threshold-input').value = localStorage.getItem('battHighVoltThreshold') || 29.2;
-                document.getElementById('low-volt-threshold-input').value = localStorage.getItem('battLowVoltThreshold') || 22.0;
-                document.getElementById('curr-threshold-input').value = localStorage.getItem('battCurrThreshold') || 20.0;
-                document.getElementById('batt-capacity-input').value = localStorage.getItem('battCapacityAh') || 100;
-                document.getElementById('batt-nom-volt-input').value = localStorage.getItem('battNominalVolt') || 24;
-                document.getElementById('batt-full-volt-input').value = localStorage.getItem('battFullVolt') || 28.4;
-                document.getElementById('batt-empty-volt-input').value = localStorage.getItem('battEmptyVolt') || 22.0;
+                document.getElementById('threshold-input').value = localStorage.getItem('solarHighVoltThreshold') || 29.2;
+                document.getElementById('low-volt-threshold-input').value = localStorage.getItem('solarLowVoltThreshold') || 22.0;
+                document.getElementById('curr-threshold-input').value = localStorage.getItem('solarCurrThreshold') || 20.0;
                 updateNotificationUI();
                 modal.style.display = 'flex';
             }
@@ -778,38 +716,28 @@
         function checkThresholdsForNotifications(data) {
             if (Notification.permission !== "granted") return;
             
-            const highVoltThreshold = parseFloat(localStorage.getItem('battHighVoltThreshold')) || 29.2;
-            const lowVoltThreshold = parseFloat(localStorage.getItem('battLowVoltThreshold')) || 22.0;
-            const currThreshold = parseFloat(localStorage.getItem('battCurrThreshold')) || 20.0;
+            const highVoltThreshold = parseFloat(localStorage.getItem('solarHighVoltThreshold')) || 29.2;
+            const lowVoltThreshold = parseFloat(localStorage.getItem('solarLowVoltThreshold')) || 22.0;
+            const currThreshold = parseFloat(localStorage.getItem('solarCurrThreshold')) || 20.0;
             const now = Date.now();
             const currentAmps = data.current / 1000.0;
 
             // Notificación de Sobrevoltaje
             if (data.voltage >= highVoltThreshold && (now - lastNotifiedTime.temp) > NOTIF_COOLDOWN) {
-                new Notification("⚡ Alerta de Sobrevoltaje", {
-                    body: `Voltaje: ${data.voltage.toFixed(1)}V — supera el umbral de ${highVoltThreshold}V`,
+                new Notification("☀️ Alerta de Sobrevoltaje Solar", {
+                    body: `Voltaje: ${data.voltage.toFixed(1)}V — registra nivel crítico de ${highVoltThreshold}V`,
                     icon: "/favicon.ico",
-                    tag: "batt-high-volt"
+                    tag: "solar-high-volt"
                 });
                 lastNotifiedTime.temp = now;
             }
 
-            // Notificación de Bajovoltaje
-            if (data.voltage > 0 && data.voltage <= lowVoltThreshold && (now - lastNotifiedTime.temp) > NOTIF_COOLDOWN) {
-                new Notification("🪫 Alerta de Batería Baja", {
-                    body: `Voltaje: ${data.voltage.toFixed(1)}V — por debajo del umbral de ${lowVoltThreshold}V`,
-                    icon: "/favicon.ico",
-                    tag: "batt-low-volt"
-                });
-                lastNotifiedTime.temp = now;
-            }
-
-            // Notificación de Sobrecorriente
+            // Notificación de Corriente
             if (currentAmps >= currThreshold && (now - lastNotifiedTime.hum) > NOTIF_COOLDOWN) {
-                new Notification("🔌 Alerta de Sobrecorriente", {
-                    body: `Corriente: ${currentAmps.toFixed(2)}A — supera el umbral de ${currThreshold}A`,
+                new Notification("⚡ Alerta de Generación Elevada", {
+                    body: `Corriente Solar: ${currentAmps.toFixed(2)}A — supera el umbral de ${currThreshold}A`,
                     icon: "/favicon.ico",
-                    tag: "batt-overcurr"
+                    tag: "solar-overcurr"
                 });
                 lastNotifiedTime.hum = now;
             }
@@ -827,7 +755,7 @@
 
         async function updateStats(isCustomRange = false) {
             try {
-                let url = '/api/battery/stats';
+                let url = '/api/solar/stats';
                 if (isCustomRange) {
                     const start = document.getElementById('stats-start-date').value;
                     const end = document.getElementById('stats-end-date').value;
@@ -867,7 +795,9 @@
                             return;
                         }
 
+                        
                         if (field.includes('volt') || field.includes('curr') || field.includes('pow')) {
+                            
                             let unit = '';
                             if (field.includes('volt')) unit = 'V';
                             if (field.includes('curr')) { unit = 'A'; value = value / 1000.0; } 
@@ -887,47 +817,6 @@
                             }
                         }
                     });
-
-                    // Energy & Cycles
-                    const capAh = parseFloat(localStorage.getItem('battCapacityAh')) || 100;
-                    const nomVolt = parseFloat(localStorage.getItem('battNominalVolt')) || 24;
-                    const capWh = capAh * nomVolt;
-
-                    const chargedEl = document.getElementById(`stat-${prefix}-charged`);
-                    const dischargedEl = document.getElementById(`stat-${prefix}-discharged`);
-                    const cyclesEl = document.getElementById(`stat-${prefix}-cycles`);
-
-                    if (chargedEl && stats.charged_wh !== undefined) {
-                        const val = stats.charged_wh;
-                        chargedEl.innerText = val > 1000 ? (val/1000).toFixed(2) + ' kWh' : val.toFixed(1) + ' Wh';
-                    }
-                    if (dischargedEl && stats.discharged_wh !== undefined) {
-                        const val = stats.discharged_wh;
-                        dischargedEl.innerText = val > 1000 ? (val/1000).toFixed(2) + ' kWh' : val.toFixed(1) + ' Wh';
-                        
-                        if (cyclesEl) {
-                            const cycles = val / capWh;
-                            cyclesEl.innerText = cycles.toFixed(3);
-                        }
-                    }
-
-                    // Voltage-based estimation
-                    const spentAhEl = document.getElementById(`stat-${prefix}-spent-ah`);
-                    if (spentAhEl && stats.first_volt && stats.last_volt) {
-                        const fVolt = parseFloat(localStorage.getItem('battFullVolt')) || 28.4;
-                        const eVolt = parseFloat(localStorage.getItem('battEmptyVolt')) || 22.0;
-                        
-                        const socStart = Math.max(0, Math.min(100, (stats.first_volt - eVolt) / (fVolt - eVolt) * 100));
-                        const socEnd = Math.max(0, Math.min(100, (stats.last_volt - eVolt) / (fVolt - eVolt) * 100));
-                        
-                        const socDiff = socStart - socEnd;
-                        if (socDiff > 0) {
-                            const spentAh = (socDiff * capAh) / 100;
-                            spentAhEl.innerText = spentAh.toFixed(1) + ' Ah (' + socDiff.toFixed(1) + '%)';
-                        } else {
-                            spentAhEl.innerText = 'Cargando/Estable';
-                        }
-                    }
 
                     // Update Stability (Standard Deviation)
                     ['volt', 'curr'].forEach(type => {
@@ -953,7 +842,7 @@
                 const fetchExtra = async (rangeLabel, hours) => {
                     const start = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
                     const end = new Date().toISOString();
-                    const res = await fetch(`/api/battery/stats?startDate=${start}&endDate=${end}`);
+                    const res = await fetch(`/api/solar/stats?startDate=${start}&endDate=${end}`);
                     const d = await res.json();
                     updateBox(rangeLabel, d.range);
                 };
@@ -1003,13 +892,9 @@
             const highVoltVal = document.getElementById('threshold-input').value;
             const lowVoltVal = document.getElementById('low-volt-threshold-input').value;
             const currVal = document.getElementById('curr-threshold-input').value;
-            localStorage.setItem('battHighVoltThreshold', highVoltVal);
-            localStorage.setItem('battLowVoltThreshold', lowVoltVal);
-            localStorage.setItem('battCurrThreshold', currVal);
-            localStorage.setItem('battCapacityAh', document.getElementById('batt-capacity-input').value);
-            localStorage.setItem('battNominalVolt', document.getElementById('batt-nom-volt-input').value);
-            localStorage.setItem('battFullVolt', document.getElementById('batt-full-volt-input').value);
-            localStorage.setItem('battEmptyVolt', document.getElementById('batt-empty-volt-input').value);
+            localStorage.setItem('solarHighVoltThreshold', highVoltVal);
+            localStorage.setItem('solarLowVoltThreshold', lowVoltVal);
+            localStorage.setItem('solarCurrThreshold', currVal);
             
             // Reiniciar el cooldown de notificaciones al cambiar umbrales
             lastNotifiedTime = { temp: 0, hum: 0 };
@@ -1094,7 +979,7 @@
         // --- Socket.io Real-Time Updates ---
         const socket = io();
 
-        socket.on('newBatteryReading', (data) => {
+        socket.on('newSolarReading', (data) => {
             console.log('Update recibido vía Socket.io:', data);
             
             // 1. Actualizar Tarjetas (con tendencia basada en los últimos datos)
@@ -1116,12 +1001,8 @@
             document.getElementById('curr-val').innerText = (data.current / 1000.0).toFixed(2);
             document.getElementById('pow-val').innerText = (data.power / 1000.0).toFixed(1);
             
-            const fVolt = parseFloat(localStorage.getItem('battFullVolt')) || 28.4;
-            const eVolt = parseFloat(localStorage.getItem('battEmptyVolt')) || 22.0;
-            let percent = ((data.voltage - eVolt) / (fVolt - eVolt)) * 100.0;
-            if (percent > 100.0) percent = 100.0;
-            if (percent < 0.0) percent = 0.0;
-            document.getElementById('pct-val').innerText = percent.toFixed(1);
+            const estimatedWatts = calculateSolarEstimatedWatts(data.voltage);
+            document.getElementById('pct-val').innerText = estimatedWatts.toFixed(0);
 
             
             
