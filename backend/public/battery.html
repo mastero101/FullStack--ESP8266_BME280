@@ -184,6 +184,112 @@
             </div>
         </div>
     </div>
+
+    <!-- Estilos de las celdas (dentro para sobreescribir) -->
+    <style>
+        .battery-pack-container {
+            display: flex;
+            gap: 4px;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0.5rem 0;
+            margin-top: 0.5rem;
+        }
+
+        .battery-cell-v {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .cell-body {
+            width: 100%;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: flex-end;
+            transition: all 0.5s ease;
+        }
+
+        .cell-level {
+            width: 100%;
+            height: 0%;
+            background: #10b981;
+            transition: height 1s cubic-bezier(0.4, 0, 0.2, 1), background 0.5s;
+        }
+
+        .cell-num {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .cell-volt {
+            font-size: 0.6rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        /* Destacar Max/Min */
+        .cell-max .cell-body { border-color: #fbbf24; box-shadow: 0 0 10px rgba(251, 191, 36, 0.3); }
+        .cell-max .cell-num { color: #fbbf24; }
+        .cell-min .cell-body { border-color: #f43f5e; box-shadow: 0 0 10px rgba(244, 63, 94, 0.3); }
+        .cell-min .cell-num { color: #f43f5e; }
+
+        /* Animación de Carga (Simulada si hay corriente > 0) */
+        @keyframes charging-pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+        .is-charging .cell-level {
+            animation: charging-pulse 2s infinite ease-in-out;
+        }
+
+        /* Mobile Fixes for Cells */
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr !important;
+            }
+            .card {
+                grid-column: span 1 !important;
+                padding: 1rem;
+            }
+            .battery-pack-container {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+            }
+            .stat-box {
+                padding: 1rem;
+                margin-bottom: 1rem;
+            }
+            .header-actions {
+                gap: 0.5rem;
+            }
+            h1 {
+                font-size: 1.8rem;
+            }
+            .cell-volt {
+                font-size: 0.5rem; /* Aún más pequeño para evitar overflow */
+            }
+            .toast-container {
+                bottom: 1rem;
+                right: 1rem;
+                left: 1rem; /* Full width on mobile */
+            }
+            .toast {
+                min-width: unset;
+                width: 100%;
+            }
+        }
+    </style>
     
     <!-- Modal de Estadísticas -->
     <div id="stats-modal" class="modal">
@@ -525,20 +631,19 @@
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card" style="grid-column: span 2;">
                 <div class="card-label">
-                    <i data-lucide="layers" style="color: #f59e0b"></i> Celdas (Max/Min)
+                    <i data-lucide="layers" style="color: #f59e0b"></i> Estado de Celdas (Pack 8S)
                 </div>
-                <div class="card-body" style="flex-direction: column; align-items: flex-start; gap: 0.4rem;">
-                    <div class="stat-row" style="width: 100%;">
-                        <span>Max:</span> <b id="bms-cell-max">--</b>
-                    </div>
-                    <div class="stat-row" style="width: 100%;">
-                        <span>Min:</span> <b id="bms-cell-min">--</b>
+                <div class="card-body" style="padding-top: 0.8rem;">
+                    <div id="battery-pack" class="battery-pack-container">
+                        <!-- Generado por JS -->
                     </div>
                 </div>
-                <div class="sub-stats">
-                    <div class="stat-item">Diff: <b id="bms-cell-diff">--</b></div>
+                <div class="sub-stats" style="margin-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.8rem;">
+                    <div class="stat-item">Máx: <b id="bms-cell-max" style="color: #fbbf24;">--</b></div>
+                    <div class="stat-item">Mín: <b id="bms-cell-min" style="color: #f43f5e;">--</b></div>
+                    <div class="stat-item">Diff: <b id="bms-cell-diff" style="color: #a78bfa;">--</b></div>
                 </div>
             </div>
 
@@ -1384,7 +1489,46 @@
             
             document.getElementById('bms-cell-max').innerText = fmt(data.cell_max_v, 3) + 'V (#' + data.cell_max_num + ')';
             document.getElementById('bms-cell-min').innerText = fmt(data.cell_min_v, 3) + 'V (#' + data.cell_min_num + ')';
-            document.getElementById('bms-cell-diff').innerText = fmt(data.cell_max_v - data.cell_min_v, 3) + 'V';
+            
+            const diffV = (Number(data.cell_max_v) - Number(data.cell_min_v));
+            document.getElementById('bms-cell-diff').innerText = diffV.toFixed(3) + ' V';
+
+            // --- Animación Horizontal Celdas 8S ---
+            const packContainer = document.getElementById('battery-pack');
+            if (packContainer) {
+                const isCharging = Number(data.current) > 0.1;
+                let html = '';
+                const maxIdx = Number(data.cell_max_num);
+                const minIdx = Number(data.cell_min_num);
+                
+                for (let i = 1; i <= 8; i++) {
+                    let v = (Number(data.cell_max_v) + Number(data.cell_min_v)) / 2; // Valor base (promedio)
+                    let className = 'battery-cell-v';
+                    
+                    if (i === maxIdx) { v = Number(data.cell_max_v); className += ' cell-max'; }
+                    if (i === minIdx) { v = Number(data.cell_min_v); className += ' cell-min'; }
+                    if (isCharging) className += ' is-charging';
+
+                    // Normalización visual (2.8V - 3.6V para celdas LiFePO4)
+                    let level = ((v - 2.8) / (3.6 - 2.8)) * 100;
+                    level = Math.max(5, Math.min(100, level));
+                    
+                    let color = '#10b981'; // Verde balanceado
+                    if (v >= 3.6 || v <= 2.8) color = '#f43f5e'; // Crítico (Rojo)
+                    else if (v >= 3.5 || (v > 0 && v <= 3.0)) color = '#f59e0b'; // Advertencia (Naranja)
+
+                    html += `
+                        <div class="${className}">
+                            <div class="cell-body">
+                                <div class="cell-level" style="height: ${level}%; background: ${color};"></div>
+                            </div>
+                            <span class="cell-num">${i}</span>
+                            <span class="cell-volt" style="color: ${i === maxIdx || i === minIdx ? color : 'white'}">${v.toFixed(3)}</span>
+                        </div>
+                    `;
+                }
+                packContainer.innerHTML = html;
+            }
             
             document.getElementById('bms-temp-val').innerText = fmt(data.temp1, 1);
 
