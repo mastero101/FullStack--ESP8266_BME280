@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kiosk - Solar Monitor</title>
+    <title>Kiosk - Solar Monitor (INA228)</title>
     <script src="lib/socket.io.min.js"></script>
     <style>
         :root {
@@ -152,12 +152,12 @@
             </div>
         </div>
         <div class="kiosk-card" id="hi-card">
-            <div class="label">Eficiencia</div>
+            <div class="label">Temp. Sensor</div>
             <div>
                 <span class="value" id="hi-val">--.-</span>
-                <span class="unit">%</span>
+                <span class="unit">°C</span>
             </div>
-            <div style="font-size: 0.8rem; color: var(--text-muted); position: absolute; bottom: 1rem;">(Panel Solar)</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); position: absolute; bottom: 1rem;">(INA228 Integrado)</div>
         </div>
     </div>
 
@@ -200,7 +200,7 @@
             document.getElementById('hum-val').innerText = (data.current / 1000.0).toFixed(2);
             document.getElementById('pres-val').innerText = (data.power / 1000.0).toFixed(0);
             
-            document.getElementById('hi-val').innerText = "100"; // Placeholder for efficiency logic
+            document.getElementById('hi-val').innerText = (data.temperature !== null && data.temperature !== undefined) ? data.temperature.toFixed(1) : '--';
 
             // Status
             const dot = document.getElementById('status-dot');

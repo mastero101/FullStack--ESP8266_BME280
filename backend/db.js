@@ -18,15 +18,19 @@ const initDb = async () => {
       pressure FLOAT NOT NULL,
       heat_index FLOAT NOT NULL,
       dew_point FLOAT, 
+      source VARCHAR(50) DEFAULT 'Desconocido',
       timestamp BIGINT NOT NULL,
       created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     );
 
-    -- Agregar columna dew_point si no existe
+    -- Columnas para diferenciar sensores
     DO $$ 
     BEGIN 
       IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='readings' AND column_name='dew_point') THEN
         ALTER TABLE readings ADD COLUMN dew_point FLOAT;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='readings' AND column_name='source') THEN
+        ALTER TABLE readings ADD COLUMN source VARCHAR(50) DEFAULT 'Desconocido';
       END IF;
     END $$;
 
@@ -48,7 +52,42 @@ const initDb = async () => {
       voltage FLOAT NOT NULL,
       current FLOAT NOT NULL,
       power FLOAT NOT NULL,
+      temperature FLOAT,
       timestamp BIGINT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Migración: agregar columna temperature a solar_readings (INA228)
+    DO $$ 
+    BEGIN 
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='solar_readings' AND column_name='temperature') THEN
+        ALTER TABLE solar_readings ADD COLUMN temperature FLOAT;
+      END IF;
+    END $$;
+
+    CREATE TABLE IF NOT EXISTS environment_readings (
+      id SERIAL PRIMARY KEY,
+      temperature FLOAT NOT NULL,
+      humidity FLOAT NOT NULL,
+      pressure FLOAT NOT NULL,
+      heat_index FLOAT NOT NULL,
+      dew_point FLOAT, 
+      timestamp BIGINT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS bms_readings (
+      id SERIAL PRIMARY KEY,
+      voltage FLOAT NOT NULL,
+      current FLOAT NOT NULL,
+      soc FLOAT NOT NULL,
+      cell_max_v FLOAT NOT NULL,
+      cell_min_v FLOAT NOT NULL,
+      cell_max_num INT,
+      cell_min_num INT,
+      temp1 FLOAT NOT NULL,
+      charge_mos BOOLEAN NOT NULL,
+      discharge_mos BOOLEAN NOT NULL,
       created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     );
   `;

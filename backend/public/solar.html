@@ -248,7 +248,7 @@
     <div class="container">
         <header>
             <div>
-                <h1>INA226 Solar</h1>
+                <h1>INA228 Solar</h1>
                 <p style="color: var(--text-muted)">Monitoreo Panel Solar en tiempo real</p>
                 <div class="nav-tabs" style="margin-top: 1rem; display: flex; gap: 0.5rem;">
                     <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/'">Clima</button>
@@ -337,6 +337,20 @@
                     <div class="stat-item" style="color: var(--text-muted); font-size: 0.70rem;">Generación Estimada</div>
                 </div>
             </div>
+            <div class="card" id="temp-card">
+                <div class="card-label">
+                    <i data-lucide="thermometer" style="color: #f97316"></i> Temp. Sensor
+                </div>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="sensor-temp-val">--</span><span class="card-unit">°C</span>
+                    </div>
+                    <span id="sensor-temp-trend" class="trend-badge"></span>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item" style="color: var(--text-muted); font-size: 0.70rem;">INA228 Integrado</div>
+                </div>
+            </div>
 
         </div>
 
@@ -348,9 +362,15 @@
                 <div class="chart-title-group">
                     <span>Historial de Datos</span>
                     <div class="quick-filters" style="margin-bottom: 0;">
-                        <button class="btn-quick" onclick="setQuickRange('hour')">1h</button>
-                        <button class="btn-quick active" onclick="setQuickRange('day')">24h</button>
-                        <button class="btn-quick" onclick="setQuickRange('week')">7d</button>
+                        <button class="btn-quick" onclick="setQuickRange('hour', this)">1h</button>
+                        <button class="btn-quick active" onclick="setQuickRange('day', this)">24h</button>
+                        <button class="btn-quick" onclick="setQuickRange('week', this)">7d</button>
+                        <button class="btn-quick" id="btn-log" onclick="toggleLogScale()" style="margin-left: 1rem; border-color: rgba(244, 63, 94, 0.3); display: flex; align-items: center; gap: 4px;">
+                            <i data-lucide="line-chart" style="width: 14px; height: 14px;"></i> Log
+                        </button>
+                        <button class="btn-quick" id="btn-smooth" onclick="toggleSmoothing()" style="border-color: rgba(16, 185, 129, 0.3); display: flex; align-items: center; gap: 4px;">
+                            <i data-lucide="waves" style="width: 14px; height: 14px;"></i> Suavizar
+                        </button>
                     </div>
                 </div>
                 
@@ -400,6 +420,8 @@
         }
 
         let chart;
+        let isLogarithmic = false;
+        let isSmoothed = false;
         let globalLastReadingTime = null;
         let lastNotifiedTime = { temp: 0, hum: 0 };
         const NOTIF_COOLDOWN = 10 * 60 * 1000; // 10 Minutos entre notificaciones del mismo tipo
@@ -420,10 +442,35 @@
                         fill: true,
                         tension: 0.4,
                         borderWidth: 3,
-                        pointRadius: 3,
-                        pointBackgroundColor: '#f43f5e',
+                        pointStyle: (ctx) => {
+                            if (ctx.datasetIndex === 0) { // Voltaje
+                                const val = ctx.raw;
+                                const hVolt = parseFloat(localStorage.getItem('solarHighVoltThreshold')) || 29.2;
+                                const lVolt = parseFloat(localStorage.getItem('solarLowVoltThreshold')) || 22.0;
+                                if (val > hVolt || (val > 0 && val < lVolt)) return 'star';
+                            }
+                            return 'circle';
+                        },
+                        pointRadius: (ctx) => {
+                            if (ctx.datasetIndex === 0) {
+                                const val = ctx.raw;
+                                const hVolt = parseFloat(localStorage.getItem('solarHighVoltThreshold')) || 29.2;
+                                const lVolt = parseFloat(localStorage.getItem('solarLowVoltThreshold')) || 22.0;
+                                if (val > hVolt || (val > 0 && val < lVolt)) return 8;
+                            }
+                            return 3;
+                        },
+                        pointBackgroundColor: (ctx) => {
+                            if (ctx.datasetIndex === 0) {
+                                const val = ctx.raw;
+                                const hVolt = parseFloat(localStorage.getItem('solarHighVoltThreshold')) || 29.2;
+                                const lVolt = parseFloat(localStorage.getItem('solarLowVoltThreshold')) || 22.0;
+                                if (val > hVolt || (val > 0 && val < lVolt)) return '#ef4444';
+                            }
+                            return '#f43f5e';
+                        },
                         pointBorderColor: 'rgba(255,255,255,0.1)',
-                        pointHoverRadius: 6
+                        pointHoverRadius: 10
                     }, {
                         label: 'Corriente (A)',
                         yAxisID: 'yCurr',
@@ -563,15 +610,24 @@
 
                 chart.data.labels = reversed.map(r => {
                     const date = new Date(r.created_at);
-                    // Si la fecha es invalida, intentar el fix de 'T' y 'Z'
                     const finalDate = isNaN(date.getTime()) ? new Date(r.created_at.replace(' ', 'T') + 'Z') : date;
-                    
                     return (startDate || limit > 144) ? finalDate.toLocaleDateString() + ' ' + finalDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
                                       : finalDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 });
-                chart.data.datasets[0].data = reversed.map(r => r.voltage);
-                chart.data.datasets[1].data = reversed.map(r => r.current / 1000.0);
-                chart.data.datasets[2].data = reversed.map(r => (r.power > 0 ? r.power / 1000.0 : calculateSolarEstimatedWatts(r.voltage)));
+
+                let vData = reversed.map(r => r.voltage);
+                let cData = reversed.map(r => r.current / 1000.0);
+                let pData = reversed.map(r => (r.power > 0 ? r.power / 1000.0 : calculateSolarEstimatedWatts(r.voltage)));
+
+                if (isSmoothed) {
+                    vData = movingAverage(vData, 5);
+                    cData = movingAverage(cData, 5);
+                    pData = movingAverage(pData, 5);
+                }
+
+                chart.data.datasets[0].data = vData;
+                chart.data.datasets[1].data = cData;
+                chart.data.datasets[2].data = pData;
                 
                 // Actualizar gradientes
                 const gradient = ctx.createLinearGradient(0, 0, 0, 400);
@@ -627,6 +683,15 @@
                     updateTrend('volt', latest.voltage, avgPrevTemp);
                     updateTrend('curr', latest.current, avgPrevHum);
                     updateTrend('pow', latest.power, avgPrevPres);
+
+                    // Temperatura del sensor INA228
+                    if (latest.temperature !== null && latest.temperature !== undefined) {
+                        document.getElementById('sensor-temp-val').innerText = latest.temperature.toFixed(1);
+                        const avgPrevSensorTemp = previousReadings.length > 0 && previousReadings[0].temperature !== null
+                            ? previousReadings.filter(r => r.temperature !== null).reduce((sum, r) => sum + r.temperature, 0) / previousReadings.filter(r => r.temperature !== null).length
+                            : latest.temperature;
+                        updateTrend('sensor-temp', latest.temperature, avgPrevSensorTemp);
+                    }
 
                     
 
@@ -1004,6 +1069,11 @@
             const estimatedWatts = calculateSolarEstimatedWatts(data.voltage);
             document.getElementById('pct-val').innerText = estimatedWatts.toFixed(0);
 
+            // Temperatura del sensor INA228
+            if (data.temperature !== null && data.temperature !== undefined) {
+                document.getElementById('sensor-temp-val').innerText = data.temperature.toFixed(1);
+            }
+
             
             
             // Re-calcular Min/Max si es tiempo real
@@ -1053,19 +1123,103 @@
             }
         });
 
-        function setQuickRange(range) {
+        function setQuickRange(range, btn) {
             // Update UI buttons
             document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
+            if (btn) btn.classList.add('active');
             
+            // Show/Hide buttons based on view
+            const logBtn = document.getElementById('btn-log');
+            const smoothBtn = document.getElementById('btn-smooth');
+            if (['hour', 'day', 'week'].includes(range)) {
+                logBtn.style.display = 'flex';
+                smoothBtn.style.display = 'flex';
+            } else {
+                logBtn.style.display = 'none';
+                smoothBtn.style.display = 'none';
+                if (isLogarithmic) toggleLogScale(); 
+                if (isSmoothed) toggleSmoothing();
+            }
+
             let limit = 144; // Default 24h
-            if (range === 'hour') limit = 6;   // 1h (if sending every 10min, but wait, ESP sends every 1min)
-            // Correction: Firmware sends every 60s (1 min).
             if (range === 'hour') limit = 60;
             if (range === 'day') limit = 1440;
             if (range === 'week') limit = 10080;
 
             fetchReadings(null, null, limit);
+        }
+
+        function toggleLogScale() {
+            isLogarithmic = !isLogarithmic;
+            const type = isLogarithmic ? 'logarithmic' : 'linear';
+            const btn = document.getElementById('btn-log');
+            
+            if (isLogarithmic) {
+                btn.classList.add('active');
+                btn.style.background = 'var(--secondary)';
+                btn.style.borderColor = 'var(--secondary)';
+                btn.style.color = 'white';
+            } else {
+                btn.classList.remove('active');
+                btn.style.background = '';
+                btn.style.borderColor = '';
+                btn.style.color = '';
+            }
+
+            chart.options.scales.yVolt.type = type;
+            chart.options.scales.yCurr.type = type;
+            chart.options.scales.yPow.type = type;
+
+            // Logarithmic scale fix for 0 values and range visibility
+            if (isLogarithmic) {
+                chart.options.scales.yVolt.suggestedMin = 0.1;
+                chart.options.scales.yCurr.suggestedMin = 0.01;
+                chart.options.scales.yPow.suggestedMin = 0.1;
+            } else {
+                chart.options.scales.yVolt.suggestedMin = 0;
+                chart.options.scales.yCurr.suggestedMin = 0;
+                chart.options.scales.yPow.suggestedMin = 0;
+            }
+
+            chart.update();
+        }
+
+        function toggleSmoothing() {
+            isSmoothed = !isSmoothed;
+            const btn = document.getElementById('btn-smooth');
+            
+            if (isSmoothed) {
+                btn.classList.add('active');
+                btn.style.background = '#10b981';
+                btn.style.borderColor = '#10b981';
+                btn.style.color = 'white';
+            } else {
+                btn.classList.remove('active');
+                btn.style.background = '';
+                btn.style.borderColor = '';
+                btn.style.color = '';
+            }
+
+            // Recargar datos actuales con/sin suavizado
+            const activeBtn = document.querySelector('.btn-quick.active');
+            let limit = 144;
+            if (activeBtn) {
+                const text = activeBtn.innerText;
+                if (text === '1h') limit = 60;
+                if (text === '24h') limit = 1440;
+                if (text === '7d') limit = 10080;
+            }
+            
+            fetchReadings(null, null, limit);
+        }
+
+        function movingAverage(data, windowSize) {
+            return data.map((val, idx, arr) => {
+                const start = Math.max(0, idx - windowSize + 1);
+                const subset = arr.slice(start, idx + 1);
+                const sum = subset.reduce((a, b) => a + b, 0);
+                return sum / subset.length;
+            });
         }
 
         function exportToCSV() {
@@ -1075,7 +1229,7 @@
             }
 
             // Headers con comillas para evitar problemas de encoding y separacion
-            const headers = ['"Fecha y Hora"', '"Voltaje (V)"', '"Corriente (mA)"', '"Potencia (mW)"'];
+            const headers = ['"Fecha y Hora"', '"Voltaje (V)"', '"Corriente (mA)"', '"Potencia (mW)"', '"Temperatura (°C)"'];
             
             const rows = window.currentData.map(r => {
                 const dateStr = r.created_at.includes('Z') || r.created_at.includes('+') ? r.created_at : r.created_at.replace(' ', 'T') + 'Z';
@@ -1085,7 +1239,8 @@
                     `"${formattedDate}"`,
                     `"${r.voltage.toFixed(2)}"`,
                     `"${r.current.toFixed(2)}"`,
-                    `"${r.power.toFixed(2)}"`
+                    `"${r.power.toFixed(2)}"`,
+                    `"${r.temperature !== null && r.temperature !== undefined ? r.temperature.toFixed(1) : 'N/A'}"`
                 ];
             });
 
@@ -1116,6 +1271,10 @@
                 fetchReadings(start, endDateTime);
                 // Clear quick filters
                 document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active'));
+                document.getElementById('btn-log').style.display = 'none';
+                document.getElementById('btn-smooth').style.display = 'none';
+                if (isLogarithmic) toggleLogScale();
+                if (isSmoothed) toggleSmoothing();
             } else {
                 alert('Por favor selecciona ambas fechas');
             }
@@ -1125,6 +1284,7 @@
             document.getElementById('start-date').value = '';
             document.getElementById('end-date').value = '';
             document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-log').style.display = 'flex';
             fetchReadings();
         }
 

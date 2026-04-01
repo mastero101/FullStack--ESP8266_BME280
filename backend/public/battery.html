@@ -4,6 +4,106 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IoT Dashboard - Battery Monitor</title>
+    <style>
+        /* Switch Toggle styling */
+        .switch {
+          position: relative;
+          display: inline-block;
+          width: 36px;
+          height: 20px;
+        }
+
+        .switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+
+        .slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(255, 255, 255, 0.1);
+          transition: .4s;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .slider:before {
+          position: absolute;
+          content: "";
+          height: 14px;
+          width: 14px;
+          left: 3px;
+          bottom: 2px;
+          background-color: white;
+          transition: .4s;
+        }
+
+        input:checked + .slider {
+          background-color: var(--success);
+        }
+
+        input:focus + .slider {
+          box-shadow: 0 0 1px var(--success);
+        }
+
+        input:checked + .slider:before {
+          transform: translateX(16px);
+        }
+
+        .slider.round {
+          border-radius: 20px;
+        }
+
+        .slider.round:before {
+          border-radius: 50%;
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .toast {
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            min-width: 280px;
+            animation: toast-in 0.3s ease-out forwards;
+            border-left: 4px solid var(--secondary);
+        }
+
+        .toast-info { border-left-color: #60a5fa; }
+        .toast.success { border-left-color: #10b981; }
+        .toast.error { border-left-color: #f43f5e; }
+        .toast.warning { border-left-color: #f59e0b; }
+
+        @keyframes toast-in {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes toast-out {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    </style>
     <link rel="stylesheet" href="style.css">
     <script src="lib/chart.min.js"></script>
     <script src="lib/lucide.min.js"></script>
@@ -316,10 +416,27 @@
         </div>
     </div>
 
+    <!-- Modal de Confirmación MOS -->
+    <div id="confirm-modal" class="modal" style="display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.85);">
+        <div class="modal-content" style="max-width: 400px; text-align: center; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+            <div class="modal-header" style="justify-content: center; border: none; padding-bottom: 0;">
+                <div style="background: rgba(245, 158, 11, 0.1); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
+                    <i data-lucide="alert-triangle" style="color: #f59e0b; width: 32px; height: 32px;"></i>
+                </div>
+            </div>
+            <h2 id="confirm-title" style="margin-bottom: 1rem; color: #fff; font-size: 1.4rem;">¿Confirmar Acción?</h2>
+            <p id="confirm-msg" style="color: var(--text-muted); margin-bottom: 2rem; line-height: 1.5;">Esta acción cambiará el estado de los MOSFETs en el BMS. ¿Estás seguro de continuar?</p>
+            <div style="display: flex; gap: 1rem; justify-content: center;">
+                <button id="confirm-cancel" class="btn-secondary" style="flex: 1; padding: 0.8rem; justify-content: center;">No, Cancelar</button>
+                <button id="confirm-ok" class="btn-filter" style="flex: 1; padding: 0.8rem; justify-content: center; background: #10b981;">Sí, Ejecutar</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <div>
-                <h1>INA226 Batería</h1>
+                <h1>Batería LiFePO4</h1>
                 <p style="color: var(--text-muted)">Monitoreo Batería en tiempo real</p>
                 <div class="nav-tabs" style="margin-top: 1rem; display: flex; gap: 0.5rem;">
                     <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/'">Clima</button>
@@ -328,13 +445,6 @@
                 </div>
             </div>
             <div class="header-actions" style="display: flex; align-items: center; gap: 1rem;">
-                <div class="status-badge" style="flex-direction: column; align-items: flex-start; gap: 0.1rem; padding: 0.5rem 1.2rem; border-radius: 12px; min-width: 140px;">
-                    <div style="display: flex; align-items: center; gap: 0.6rem;">
-                        <span id="status-dot" class="dot"></span>
-                        <span id="status-text" style="font-weight: 700;">Buscando...</span>
-                    </div>
-                    <span id="last-seen" style="font-size: 0.65rem; color: var(--text-muted); margin-left: 1.1rem;">Visto: --</span>
-                </div>
                 <button class="btn-icon" onclick="window.location.href='/kiosk-battery'" title="Modo Quiosco Batería">
                     <i data-lucide="layout-dashboard"></i>
                 </button>
@@ -347,68 +457,154 @@
             </div>
         </header>
 
+        <!-- Seccion INA226 desactivada temporalmente 
         <div class="grid">
+            <div class="card" id="volt-card"> ... </div>
+        </div>
+        -->
 
-            <div class="card" id="volt-card">
+        <h2 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.8rem; font-size: 1.5rem; justify-content: center; background: linear-gradient(to right, #60a5fa, #34d399); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
+            <i data-lucide="bluetooth" style="stroke: #60a5fa;"></i> Daly BMS (BLE Bridge)
+        </h2>
+
+        <div class="grid" id="bms-grid">
+            <div class="card" id="bms-status-card">
                 <div class="card-label">
-                    <i data-lucide="zap" style="color: #fbbf24"></i> Voltaje
+                    <i data-lucide="radio" style="color: #60a5fa"></i> Estado BMS
                 </div>
                 <div class="card-body">
-                    <div class="card-value">
-                        <span id="volt-val">--</span><span class="card-unit">V</span>
+                    <div class="card-value" style="font-size: 1.5rem;">
+                        <span id="bms-status-text">Desconectado</span>
                     </div>
-                    <span id="volt-trend" class="trend-badge"></span>
                 </div>
                 <div class="sub-stats">
-                    <div class="stat-item">Min: <b id="volt-min">--</b></div>
-                    <div class="stat-item">Max: <b id="volt-max">--</b></div>
+                    <div class="stat-item" id="bms-last-seen">Visto: --</div>
                 </div>
             </div>
-            <div class="card" id="curr-card">
-                <div class="card-label">
-                    <i data-lucide="activity" style="color: #60a5fa"></i> Corriente
-                </div>
-                <div class="card-body">
-                    <div class="card-value">
-                        <span id="curr-val">--</span><span class="card-unit">A</span>
-                    </div>
-                    <span id="curr-trend" class="trend-badge"></span>
-                </div>
-                <div class="sub-stats">
-                    <div class="stat-item">Min: <b id="curr-min">--</b></div>
-                    <div class="stat-item">Max: <b id="curr-max">--</b></div>
-                </div>
-            </div>
+
             <div class="card">
                 <div class="card-label">
-                    <i data-lucide="power" style="color: #34d399"></i> Potencia
+                    <i data-lucide="battery-charging" style="color: #34d399"></i> SoC Real (BMS)
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="pow-val">--</span><span class="card-unit">W</span>
+                        <span id="bms-soc-val">--</span><span class="card-unit">%</span>
                     </div>
-                    <span id="pow-trend" class="trend-badge"></span>
                 </div>
                 <div class="sub-stats">
-                    <div class="stat-item">Min: <b id="pow-min">--</b></div>
-                    <div class="stat-item">Max: <b id="pow-max">--</b></div>
-                </div>
-            </div>
-            <div class="card" id="pct-card">
-                <div class="card-label">
-                    <i data-lucide="battery" style="color: #f87171"></i> SOC Estimado
-                </div>
-                <div class="card-body">
-                    <div class="card-value">
-                        <span id="pct-val">--</span><span class="card-unit">%</span>
-                    </div>
-                    <span id="pct-trend" class="trend-badge"></span>
-                </div>
-                <div class="sub-stats">
-                    <div class="stat-item" style="color: var(--text-muted); font-size: 0.70rem;">8S 25.6V LiFePO4</div>
+                    <div class="stat-item" style="color: var(--text-muted); font-size: 0.75rem;">Capacidad BMS 100% Real</div>
                 </div>
             </div>
 
+            <div class="card">
+                <div class="card-label">
+                    <i data-lucide="zap" style="color: #fbbf24"></i> Voltaje BMS
+                </div>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="bms-volt-val">--</span><span class="card-unit">V</span>
+                    </div>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item">Monitor de Potencia BMS</div>
+                </div>
+            </div>
+
+            <div class="card" id="bms-curr-card">
+                <div class="card-label">
+                    <i data-lucide="activity" style="color: #60a5fa"></i> Amperaje BMS
+                </div>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="bms-curr-val">--</span><span class="card-unit">A</span>
+                    </div>
+                    <span id="bms-curr-status" class="trend-badge"></span>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item">Corriente de Carga/Descarga</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-label">
+                    <i data-lucide="layers" style="color: #f59e0b"></i> Celdas (Max/Min)
+                </div>
+                <div class="card-body" style="flex-direction: column; align-items: flex-start; gap: 0.4rem;">
+                    <div class="stat-row" style="width: 100%;">
+                        <span>Max:</span> <b id="bms-cell-max">--</b>
+                    </div>
+                    <div class="stat-row" style="width: 100%;">
+                        <span>Min:</span> <b id="bms-cell-min">--</b>
+                    </div>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item">Diff: <b id="bms-cell-diff">--</b></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-label">
+                    <i data-lucide="thermometer" style="color: #f87171"></i> Temp BMS
+                </div>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="bms-temp-val">--</span><span class="card-unit">°C</span>
+                    </div>
+                </div>
+                <div class="sub-stats" style="flex-direction: column; gap: 0.5rem; align-items: stretch;">
+                    <div class="stat-row">
+                        <span>MOS Carga:</span> 
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <b id="bms-mos-charge" style="font-size: 0.75rem;">--</b>
+                            <label class="switch">
+                                <input type="checkbox" id="switch-mos-charge" onchange="confirmToggle('charge', this)">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="stat-row">
+                        <span>MOS Descarga:</span> 
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <b id="bms-mos-discharge" style="font-size: 0.75rem;">--</b>
+                            <label class="switch">
+                                <input type="checkbox" id="switch-mos-discharge" onchange="confirmToggle('discharge', this)">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-label">
+                    <i data-lucide="gauge" style="color: #6366f1"></i> Potencia BMS
+                </div>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="bms-pow-val">--</span><span class="card-unit">W</span>
+                    </div>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item" id="bms-pow-efficiency">Cálculo: V x A</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-label">
+                    <i data-lucide="history" style="color: #a78bfa"></i> Consumo Hoy (BMS)
+                </div>
+                <div class="card-body" style="flex-direction: column; align-items: flex-start; gap: 0.4rem;">
+                    <div class="stat-row" style="width: 100%;">
+                        <span>Cargado:</span> <b id="bms-daily-charged">--</b>
+                    </div>
+                    <div class="stat-row" style="width: 100%;">
+                        <span>Descargado:</span> <b id="bms-daily-discharged">--</b>
+                    </div>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item">Neto Hoy: <b id="bms-daily-net">--</b></div>
+                </div>
+            </div>
         </div>
 
         <div class="chart-section" id="chart-container">
@@ -417,11 +613,19 @@
             </div>
             <div class="chart-header">
                 <div class="chart-title-group">
-                    <span>Historial de Datos</span>
+                    <h2 style="display: flex; align-items: center; gap: 0.8rem; font-size: 1.8rem; color: #60a5fa;">
+                        <i data-lucide="bar-chart-3" style="width: 28px; height: 28px;"></i> BMS: Análisis de Datos
+                    </h2>
                     <div class="quick-filters" style="margin-bottom: 0;">
-                        <button class="btn-quick" onclick="setQuickRange('hour')">1h</button>
-                        <button class="btn-quick active" onclick="setQuickRange('day')">24h</button>
-                        <button class="btn-quick" onclick="setQuickRange('week')">7d</button>
+                        <button class="btn-quick" onclick="setQuickRange('hour', this)">1h</button>
+                        <button class="btn-quick active" onclick="setQuickRange('day', this)">24h</button>
+                        <button class="btn-quick" onclick="setQuickRange('week', this)">7d</button>
+                        <button class="btn-quick" id="btn-log" onclick="toggleLogScale()" style="margin-left: 1rem; border-color: rgba(244, 63, 94, 0.3); display: flex; align-items: center; gap: 4px;">
+                            <i data-lucide="line-chart" style="width: 14px; height: 14px;"></i> Log
+                        </button>
+                        <button class="btn-quick" id="btn-smooth" onclick="toggleSmoothing()" style="border-color: rgba(16, 185, 129, 0.3); display: flex; align-items: center; gap: 4px;">
+                            <i data-lucide="waves" style="width: 14px; height: 14px;"></i> Suavizar
+                        </button>
                     </div>
                 </div>
                 
@@ -454,6 +658,8 @@
         lucide.createIcons();
 
         let chart;
+        let isLogarithmic = false;
+        let isSmoothed = false;
         let globalLastReadingTime = null;
         let lastNotifiedTime = { temp: 0, hum: 0 };
         const NOTIF_COOLDOWN = 10 * 60 * 1000; // 10 Minutos entre notificaciones del mismo tipo
@@ -474,10 +680,35 @@
                         fill: true,
                         tension: 0.4,
                         borderWidth: 3,
-                        pointRadius: 3,
-                        pointBackgroundColor: '#f43f5e',
+                        pointStyle: (ctx) => {
+                            if (ctx.datasetIndex === 0) { // Voltaje
+                                const val = ctx.raw;
+                                const hVolt = parseFloat(localStorage.getItem('battHighVoltThreshold')) || 29.2;
+                                const lVolt = parseFloat(localStorage.getItem('battLowVoltThreshold')) || 22.0;
+                                if (val > hVolt || (val > 0 && val < lVolt)) return 'star';
+                            }
+                            return 'circle';
+                        },
+                        pointRadius: (ctx) => {
+                            if (ctx.datasetIndex === 0) {
+                                const val = ctx.raw;
+                                const hVolt = parseFloat(localStorage.getItem('battHighVoltThreshold')) || 29.2;
+                                const lVolt = parseFloat(localStorage.getItem('battLowVoltThreshold')) || 22.0;
+                                if (val > hVolt || (val > 0 && val < lVolt)) return 8;
+                            }
+                            return 3;
+                        },
+                        pointBackgroundColor: (ctx) => {
+                            if (ctx.datasetIndex === 0) {
+                                const val = ctx.raw;
+                                const hVolt = parseFloat(localStorage.getItem('battHighVoltThreshold')) || 29.2;
+                                const lVolt = parseFloat(localStorage.getItem('battLowVoltThreshold')) || 22.0;
+                                if (val > hVolt || (val > 0 && val < lVolt)) return '#ef4444';
+                            }
+                            return '#f43f5e';
+                        },
                         pointBorderColor: 'rgba(255,255,255,0.1)',
-                        pointHoverRadius: 6
+                        pointHoverRadius: 10
                     }, {
                         label: 'Corriente (A)',
                         yAxisID: 'yCurr',
@@ -617,15 +848,24 @@
 
                 chart.data.labels = reversed.map(r => {
                     const date = new Date(r.created_at);
-                    // Si la fecha es invalida, intentar el fix de 'T' y 'Z'
                     const finalDate = isNaN(date.getTime()) ? new Date(r.created_at.replace(' ', 'T') + 'Z') : date;
-                    
                     return (startDate || limit > 144) ? finalDate.toLocaleDateString() + ' ' + finalDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
                                       : finalDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 });
-                chart.data.datasets[0].data = reversed.map(r => r.voltage);
-                chart.data.datasets[1].data = reversed.map(r => r.current / 1000.0);
-                chart.data.datasets[2].data = reversed.map(r => r.power / 1000.0);
+
+                let vData = reversed.map(r => r.voltage);
+                let cData = reversed.map(r => r.current / 1000.0);
+                let pData = reversed.map(r => r.power / 1000.0);
+
+                if (isSmoothed) {
+                    vData = movingAverage(vData, 5);
+                    cData = movingAverage(cData, 5);
+                    pData = movingAverage(pData, 5);
+                }
+
+                chart.data.datasets[0].data = vData;
+                chart.data.datasets[1].data = cData;
+                chart.data.datasets[2].data = pData;
                 
                 // Actualizar gradientes
                 const gradient = ctx.createLinearGradient(0, 0, 0, 400);
@@ -669,16 +909,21 @@
                         ? previousReadings.reduce((sum, r) => sum + r.power, 0) / previousReadings.length 
                         : latest.power;
 
-                    document.getElementById('volt-val').innerText = latest.voltage.toFixed(1);
-                    document.getElementById('curr-val').innerText = (latest.current / 1000.0).toFixed(2);
-                    document.getElementById('pow-val').innerText = (latest.power / 1000.0).toFixed(1);
+                    const voltValEl = document.getElementById('volt-val');
+                    const currValEl = document.getElementById('curr-val');
+                    const powValEl = document.getElementById('pow-val');
+                    const pctValEl = document.getElementById('pct-val');
+
+                    if (voltValEl) voltValEl.innerText = latest.voltage.toFixed(1);
+                    if (currValEl) currValEl.innerText = (latest.current / 1000.0).toFixed(2);
+                    if (powValEl) powValEl.innerText = (latest.power / 1000.0).toFixed(1);
                     
                     const fVolt = parseFloat(localStorage.getItem('battFullVolt')) || 28.4;
                     const eVolt = parseFloat(localStorage.getItem('battEmptyVolt')) || 22.0;
                     let percent = ((latest.voltage - eVolt) / (fVolt - eVolt)) * 100.0;
                     if (percent > 100.0) percent = 100.0;
                     if (percent < 0.0) percent = 0.0;
-                    document.getElementById('pct-val').innerText = percent.toFixed(1);
+                    if (pctValEl) pctValEl.innerText = percent.toFixed(1);
 
 
                     // Tendencias basadas en promedios
@@ -692,16 +937,20 @@
 
                     // Alertas Batería (Dinámico - Independiente del BME280)
                     const voltCard = document.getElementById('volt-card');
-                    const highVoltThreshold = parseFloat(localStorage.getItem('battHighVoltThreshold')) || 29.2;
-                    const lowVoltThreshold = parseFloat(localStorage.getItem('battLowVoltThreshold')) || 22.0;
-                    if (latest.voltage >= highVoltThreshold || latest.voltage <= lowVoltThreshold) voltCard.classList.add('critical');
-                    else voltCard.classList.remove('critical');
+                    if (voltCard) {
+                        const highVoltThreshold = parseFloat(localStorage.getItem('battHighVoltThreshold')) || 29.2;
+                        const lowVoltThreshold = parseFloat(localStorage.getItem('battLowVoltThreshold')) || 22.0;
+                        if (latest.voltage >= highVoltThreshold || latest.voltage <= lowVoltThreshold) voltCard.classList.add('critical');
+                        else voltCard.classList.remove('critical');
+                    }
 
                     // Alerta Sobrecorriente
                     const currCard = document.getElementById('curr-card');
-                    const currThreshold = parseFloat(localStorage.getItem('battCurrThreshold')) || 20.0;
-                    if ((latest.current / 1000.0) >= currThreshold) currCard.classList.add('critical-hum');
-                    else currCard.classList.remove('critical-hum');
+                    if (currCard) {
+                        const currThreshold = parseFloat(localStorage.getItem('battCurrThreshold')) || 20.0;
+                        if ((latest.current / 1000.0) >= currThreshold) currCard.classList.add('critical-hum');
+                        else currCard.classList.remove('critical-hum');
+                    }
 
                     updateStatusBadge(latest.created_at);
                     globalLastReadingTime = latest.created_at;
@@ -1031,30 +1280,38 @@
             const text = document.getElementById('status-text');
             const seen = document.getElementById('last-seen');
             
-            // Limpiar estados previos
-            dot.classList.remove('online', 'delayed', 'offline');
-            
-            if (diffMin < 2) {
-                dot.classList.add('online');
-                text.innerText = 'Sensor Online';
-                text.style.color = 'var(--success)';
-            } else if (diffMin < 10) {
-                dot.classList.add('delayed');
-                text.innerText = 'Sensor Demorado';
-                text.style.color = 'var(--warning)';
-            } else {
-                dot.classList.add('offline');
-                text.innerText = 'Sensor Desconectado';
-                text.style.color = 'var(--secondary)';
+            if (dot) {
+                dot.classList.remove('online', 'delayed', 'offline');
+                if (diffMin < 2) {
+                    dot.classList.add('online');
+                    if (text) {
+                        text.innerText = 'Sensor Online';
+                        text.style.color = 'var(--success)';
+                    }
+                } else if (diffMin < 10) {
+                    dot.classList.add('delayed');
+                    if (text) {
+                        text.innerText = 'Sensor Demorado';
+                        text.style.color = 'var(--warning)';
+                    }
+                } else {
+                    dot.classList.add('offline');
+                    if (text) {
+                        text.innerText = 'Sensor Desconectado';
+                        text.style.color = 'var(--secondary)';
+                    }
+                }
             }
 
             // Actualizar Tiempo Relativo
-            if (diffMin < 1) {
-                seen.innerText = 'Visto ahora mismo';
-            } else if (diffMin < 60) {
-                seen.innerText = `Visto hace ${Math.floor(diffMin)} min`;
-            } else {
-                seen.innerText = `Visto hace ${Math.floor(diffMin/60)}h ${Math.floor(diffMin%60)}m`;
+            if (seen) {
+                if (diffMin < 1) {
+                    seen.innerText = 'Visto ahora mismo';
+                } else if (diffMin < 60) {
+                    seen.innerText = `Visto hace ${Math.floor(diffMin)} min`;
+                } else {
+                    seen.innerText = `Visto hace ${Math.floor(diffMin/60)}h ${Math.floor(diffMin%60)}m`;
+                }
             }
         }
 
@@ -1066,18 +1323,27 @@
             const pows = readings.map(r => r.power / 1000.0);
             
 
-            document.getElementById('volt-min').innerText = Math.min(...volts).toFixed(1) + ' V';
-            document.getElementById('volt-max').innerText = Math.max(...volts).toFixed(1) + ' V';
-            document.getElementById('curr-min').innerText = Math.min(...currs).toFixed(2) + ' A';
-            document.getElementById('curr-max').innerText = Math.max(...currs).toFixed(2) + ' A';
-            document.getElementById('pow-min').innerText = Math.min(...pows).toFixed(1) + ' W';
-            document.getElementById('pow-max').innerText = Math.max(...pows).toFixed(1) + ' W';
+            const vMin = document.getElementById('volt-min');
+            const vMax = document.getElementById('volt-max');
+            const cMin = document.getElementById('curr-min');
+            const cMax = document.getElementById('curr-max');
+            const pMin = document.getElementById('pow-min');
+            const pMax = document.getElementById('pow-max');
+
+            if (vMin) vMin.innerText = Math.min(...volts).toFixed(1) + ' V';
+            if (vMax) vMax.innerText = Math.max(...volts).toFixed(1) + ' V';
+            if (cMin) cMin.innerText = Math.min(...currs).toFixed(2) + ' A';
+            if (cMax) cMax.innerText = Math.max(...currs).toFixed(2) + ' A';
+            if (pMin) pMin.innerText = Math.min(...pows).toFixed(1) + ' W';
+            if (pMax) pMax.innerText = Math.max(...pows).toFixed(1) + ' W';
             
             
         }
 
         function updateTrend(type, newVal, oldVal) {
             const badge = document.getElementById(`${type}-trend`);
+            if (!badge) return;
+
             if (!oldVal || newVal === oldVal) {
                 badge.innerHTML = '<i data-lucide="minus"></i>';
                 badge.className = 'trend-badge trend-equal';
@@ -1091,16 +1357,99 @@
             lucide.createIcons();
         }
 
+        // --- Daly BMS Bridge Update Function ---
+        function updateBmsUI(data) {
+            if (!data) return;
+            console.log('BMS Update ejecutado:', data);
+            
+            const fmt = (v, d=1) => (v !== undefined && v !== null) ? Number(v).toFixed(d) : '--';
+            
+            document.getElementById('bms-soc-val').innerText = fmt(data.soc, 1);
+            document.getElementById('bms-volt-val').innerText = fmt(data.voltage, 2);
+            document.getElementById('bms-curr-val').innerText = fmt(data.current, 2);
+            
+            const bmsCurrStatus = document.getElementById('bms-curr-status');
+            const currentVal = Number(data.current);
+            if (currentVal > 0.1) {
+                bmsCurrStatus.innerHTML = '<i data-lucide="arrow-up"></i> CARGA';
+                bmsCurrStatus.className = 'trend-badge trend-down'; // Verde
+            } else if (currentVal < -0.1) {
+                bmsCurrStatus.innerHTML = '<i data-lucide="arrow-down"></i> DESCARGA';
+                bmsCurrStatus.className = 'trend-badge trend-up'; // Rojo
+            } else {
+                bmsCurrStatus.innerHTML = '<i data-lucide="minus"></i> REPOSO';
+                bmsCurrStatus.className = 'trend-badge trend-equal'; // Gris
+            }
+            lucide.createIcons();
+            
+            document.getElementById('bms-cell-max').innerText = fmt(data.cell_max_v, 3) + 'V (#' + data.cell_max_num + ')';
+            document.getElementById('bms-cell-min').innerText = fmt(data.cell_min_v, 3) + 'V (#' + data.cell_min_num + ')';
+            document.getElementById('bms-cell-diff').innerText = fmt(data.cell_max_v - data.cell_min_v, 3) + 'V';
+            
+            document.getElementById('bms-temp-val').innerText = fmt(data.temp1, 1);
+
+            const bmsPower = data.voltage * data.current;
+            document.getElementById('bms-pow-val').innerText = bmsPower.toFixed(1);
+            
+            const mosCharge = document.getElementById('bms-mos-charge');
+            mosCharge.innerText = data.charge_mos ? 'CONDUCIENDO' : 'BLOQUEADO';
+            mosCharge.style.color = data.charge_mos ? '#10b981' : '#f43f5e';
+            document.getElementById('switch-mos-charge').checked = data.charge_mos;
+            
+            const mosDischarge = document.getElementById('bms-mos-discharge');
+            mosDischarge.innerText = data.discharge_mos ? 'CONDUCIENDO' : 'BLOQUEADO';
+            mosDischarge.style.color = data.discharge_mos ? '#10b981' : '#f43f5e';
+            document.getElementById('switch-mos-discharge').checked = data.discharge_mos;
+
+            // Estado de Conexión BMS
+            const bmsStatus = document.getElementById('bms-status-text');
+            const bmsCard = document.getElementById('bms-status-card');
+            
+            if (data.online !== false) {
+                bmsStatus.innerText = 'CONECTADO';
+                bmsStatus.style.color = 'var(--success)';
+                bmsCard.style.borderColor = 'var(--success)';
+                bmsCard.classList.remove('offline');
+            } else {
+                bmsStatus.innerText = 'OFFLINE';
+                bmsStatus.style.color = 'var(--secondary)';
+                bmsCard.style.borderColor = '';
+            }
+            
+            const timeStr = (data.created_at || data.last_update) ? new Date(data.created_at || data.last_update).toLocaleTimeString() : new Date().toLocaleTimeString();
+            document.getElementById('bms-last-seen').innerText = 'Visto: ' + timeStr;
+        }
+
         // --- Socket.io Real-Time Updates ---
         const socket = io();
+
+        socket.on('newBmsReading', (data) => {
+            updateBmsUI(data);
+        });
 
         socket.on('newBatteryReading', (data) => {
             console.log('Update recibido vía Socket.io:', data);
             
-            // 1. Actualizar Tarjetas (con tendencia basada en los últimos datos)
+            // 1. Actualizar Tarjetas (solo si los elementos existen)
+            const voltValEl = document.getElementById('volt-val');
+            const currValEl = document.getElementById('curr-val');
+            const powValEl = document.getElementById('pow-val');
+            const pctValEl = document.getElementById('pct-val');
+
+            if (voltValEl) voltValEl.innerText = data.voltage.toFixed(1);
+            if (currValEl) currValEl.innerText = (data.current / 1000.0).toFixed(2);
+            if (powValEl) powValEl.innerText = (data.power / 1000.0).toFixed(1);
+            
+            const fVolt = parseFloat(localStorage.getItem('battFullVolt')) || 28.4;
+            const eVolt = parseFloat(localStorage.getItem('battEmptyVolt')) || 22.0;
+            let percent = ((data.voltage - eVolt) / (fVolt - eVolt)) * 100.0;
+            if (percent > 100.0) percent = 100.0;
+            if (percent < 0.0) percent = 0.0;
+            if (pctValEl) pctValEl.innerText = percent.toFixed(1);
+
+            // 2. Tendencias (si existe el historial)
             const latestReadings = window.currentData || [];
             if (latestReadings.length > 0) {
-                // Tomar los últimos 4 del historial + el nuevo dato para el promedio
                 const last4 = latestReadings.slice(-4);
                 const avgVolt = last4.reduce((sum, r) => sum + r.voltage, 0) / last4.length;
                 const avgCurr = last4.reduce((sum, r) => sum + r.current, 0) / last4.length;
@@ -1109,40 +1458,30 @@
                 updateTrend('volt', data.voltage, avgVolt);
                 updateTrend('curr', data.current, avgCurr);
                 updateTrend('pow', data.power, avgPow);
-
             }
 
-            document.getElementById('volt-val').innerText = data.voltage.toFixed(1);
-            document.getElementById('curr-val').innerText = (data.current / 1000.0).toFixed(2);
-            document.getElementById('pow-val').innerText = (data.power / 1000.0).toFixed(1);
-            
-            const fVolt = parseFloat(localStorage.getItem('battFullVolt')) || 28.4;
-            const eVolt = parseFloat(localStorage.getItem('battEmptyVolt')) || 22.0;
-            let percent = ((data.voltage - eVolt) / (fVolt - eVolt)) * 100.0;
-            if (percent > 100.0) percent = 100.0;
-            if (percent < 0.0) percent = 0.0;
-            document.getElementById('pct-val').innerText = percent.toFixed(1);
-
-            
-            
-            // Re-calcular Min/Max si es tiempo real
+            // 3. Re-calcular Min/Max si es tiempo real
             if (!document.getElementById('start-date').value && window.currentData) {
                 window.currentData.push(data);
                 if (window.currentData.length > 144) window.currentData.shift();
                 updateMinMaxStats(window.currentData);
             }
 
-            // Alertas Batería (Dinámico - Independiente del BME280)
+            // 4. Alertas Batería
             const voltCard = document.getElementById('volt-card');
-            const highVoltThreshold = parseFloat(localStorage.getItem('battHighVoltThreshold')) || 29.2;
-            const lowVoltThreshold = parseFloat(localStorage.getItem('battLowVoltThreshold')) || 22.0;
-            if (data.voltage >= highVoltThreshold || (data.voltage > 0 && data.voltage <= lowVoltThreshold)) voltCard.classList.add('critical');
-            else voltCard.classList.remove('critical');
+            if (voltCard) {
+                const highVoltThreshold = parseFloat(localStorage.getItem('battHighVoltThreshold')) || 29.2;
+                const lowVoltThreshold = parseFloat(localStorage.getItem('battLowVoltThreshold')) || 22.0;
+                if (data.voltage >= highVoltThreshold || (data.voltage > 0 && data.voltage <= lowVoltThreshold)) voltCard.classList.add('critical');
+                else voltCard.classList.remove('critical');
+            }
 
             const currCard = document.getElementById('curr-card');
-            const currThreshold = parseFloat(localStorage.getItem('battCurrThreshold')) || 20.0;
-            if ((data.current / 1000.0) >= currThreshold) currCard.classList.add('critical-hum');
-            else currCard.classList.remove('critical-hum');
+            if (currCard) {
+                const currThreshold = parseFloat(localStorage.getItem('battCurrThreshold')) || 20.0;
+                if ((data.current / 1000.0) >= currThreshold) currCard.classList.add('critical-hum');
+                else currCard.classList.remove('critical-hum');
+            }
 
             // Status Online & Actualizar Tiempo
             updateStatusBadge(data.created_at);
@@ -1151,7 +1490,7 @@
             // Check Notifications
             checkThresholdsForNotifications(data);
 
-            // 2. Actualizar Gráfica (solo si no hay filtros activos)
+            // 5. Actualizar Gráfica (solo si no hay filtros activos)
             if (!document.getElementById('start-date').value) {
                 const date = new Date(data.created_at);
                 const label = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -1161,30 +1500,102 @@
                 chart.data.datasets[1].data.push(data.current / 1000.0);
                 chart.data.datasets[2].data.push(data.power / 1000.0);
 
-                // Mantener el límite de puntos actual
                 if (chart.data.labels.length > 144) {
                     chart.data.labels.shift();
                     chart.data.datasets[0].data.shift();
                     chart.data.datasets[1].data.shift();
                     chart.data.datasets[2].data.shift();
                 }
-                chart.update('none'); // Update sin animacion para suavidad
+                chart.update('none');
             }
         });
 
-        function setQuickRange(range) {
+        function setQuickRange(range, btn) {
             // Update UI buttons
             document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
+            if (btn) btn.classList.add('active');
             
+            // Show/Hide buttons based on view
+            const logBtn = document.getElementById('btn-log');
+            const smoothBtn = document.getElementById('btn-smooth');
+            if (['hour', 'day', 'week'].includes(range)) {
+                logBtn.style.display = 'flex';
+                smoothBtn.style.display = 'flex';
+            } else {
+                logBtn.style.display = 'none';
+                smoothBtn.style.display = 'none';
+                if (isLogarithmic) toggleLogScale(); 
+                if (isSmoothed) toggleSmoothing();
+            }
+
             let limit = 144; // Default 24h
-            if (range === 'hour') limit = 6;   // 1h (if sending every 10min, but wait, ESP sends every 1min)
-            // Correction: Firmware sends every 60s (1 min).
             if (range === 'hour') limit = 60;
             if (range === 'day') limit = 1440;
             if (range === 'week') limit = 10080;
 
             fetchReadings(null, null, limit);
+        }
+
+        function toggleLogScale() {
+            isLogarithmic = !isLogarithmic;
+            const type = isLogarithmic ? 'logarithmic' : 'linear';
+            const btn = document.getElementById('btn-log');
+            
+            if (isLogarithmic) {
+                btn.classList.add('active');
+                btn.style.background = 'var(--secondary)';
+                btn.style.borderColor = 'var(--secondary)';
+                btn.style.color = 'white';
+            } else {
+                btn.classList.remove('active');
+                btn.style.background = '';
+                btn.style.borderColor = '';
+                btn.style.color = '';
+            }
+
+            chart.options.scales.yVolt.type = type;
+            chart.options.scales.yCurr.type = type;
+            chart.options.scales.yPow.type = type;
+
+            chart.update();
+        }
+
+        function toggleSmoothing() {
+            isSmoothed = !isSmoothed;
+            const btn = document.getElementById('btn-smooth');
+            
+            if (isSmoothed) {
+                btn.classList.add('active');
+                btn.style.background = '#10b981';
+                btn.style.borderColor = '#10b981';
+                btn.style.color = 'white';
+            } else {
+                btn.classList.remove('active');
+                btn.style.background = '';
+                btn.style.borderColor = '';
+                btn.style.color = '';
+            }
+
+            // Recargar datos actuales con/sin suavizado
+            const activeBtn = document.querySelector('.btn-quick.active');
+            let limit = 144;
+            if (activeBtn) {
+                const text = activeBtn.innerText;
+                if (text === '1h') limit = 60;
+                if (text === '24h') limit = 1440;
+                if (text === '7d') limit = 10080;
+            }
+            
+            fetchReadings(null, null, limit);
+        }
+
+        function movingAverage(data, windowSize) {
+            return data.map((val, idx, arr) => {
+                const start = Math.max(0, idx - windowSize + 1);
+                const subset = arr.slice(start, idx + 1);
+                const sum = subset.reduce((a, b) => a + b, 0);
+                return sum / subset.length;
+            });
         }
 
         function exportToCSV() {
@@ -1235,6 +1646,10 @@
                 fetchReadings(start, endDateTime);
                 // Clear quick filters
                 document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active'));
+                document.getElementById('btn-log').style.display = 'none';
+                document.getElementById('btn-smooth').style.display = 'none';
+                if (isLogarithmic) toggleLogScale();
+                if (isSmoothed) toggleSmoothing();
             } else {
                 alert('Por favor selecciona ambas fechas');
             }
@@ -1244,18 +1659,146 @@
             document.getElementById('start-date').value = '';
             document.getElementById('end-date').value = '';
             document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-log').style.display = 'flex';
+            document.getElementById('btn-smooth').style.display = 'flex';
             fetchReadings();
+        }
+
+        async function fetchBmsLatest() {
+            try {
+                // Fetch basic latest values
+                const response = await fetch('/bms');
+                const data = await response.json();
+                updateBmsUI(data);
+
+                // Fetch Daily Stats
+                const statsResp = await fetch('/api/battery/stats');
+                const stats = await statsResp.json();
+                if (stats.today) {
+                    const charged = stats.today.charged_wh || 0;
+                    const discharged = stats.today.discharged_wh || 0;
+                    document.getElementById('bms-daily-charged').innerText = charged.toFixed(1) + ' Wh';
+                    document.getElementById('bms-daily-discharged').innerText = discharged.toFixed(1) + ' Wh';
+                    document.getElementById('bms-daily-net').innerText = (charged - discharged).toFixed(1) + ' Wh';
+                }
+            } catch (e) {
+                console.error("Error fetching BMS latest:", e);
+            }
+        }
+    </script>
+
+    <div id="toast-container" class="toast-container"></div>
+
+    <script>
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            let icon = 'info';
+            if (type === 'success') icon = 'check-circle';
+            if (type === 'error') icon = 'alert-circle';
+            if (type === 'warning') icon = 'alert-triangle';
+            
+            toast.innerHTML = `
+                <i data-lucide="${icon}"></i>
+                <span style="font-size: 0.85rem; font-weight: 500;">${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            if (window.lucide) lucide.createIcons();
+            
+            setTimeout(() => {
+                toast.style.animation = 'toast-out 0.3s ease-in forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        function confirmToggle(type, checkbox) {
+            const modal = document.getElementById('confirm-modal');
+            const okBtn = document.getElementById('confirm-ok');
+            const cancelBtn = document.getElementById('confirm-cancel');
+            const title = document.getElementById('confirm-title');
+            const msg = document.getElementById('confirm-msg');
+            
+            const action = checkbox.checked ? "HABILITAR" : "DESHABILITAR";
+            const mosName = type === 'charge' ? "CARGA" : "DESCARGA";
+            
+            title.innerText = `¿${action} MOS ${mosName}?`;
+            msg.innerText = `Estás a punto de ${action.toLowerCase()} el canal de ${mosName.toLowerCase()}. ¿Estás seguro de que deseas continuar con esta operación?`;
+            
+            modal.style.display = 'flex';
+            
+            const handleCancel = () => {
+                checkbox.checked = !checkbox.checked; // Revertir visualmente
+                modal.style.display = 'none';
+                cleanup();
+            };
+            
+            const handleOk = () => {
+                toggleMos(type, checkbox.checked);
+                modal.style.display = 'none';
+                cleanup();
+            };
+            
+            const cleanup = () => {
+                okBtn.removeEventListener('click', handleOk);
+                cancelBtn.removeEventListener('click', handleCancel);
+            };
+            
+            okBtn.addEventListener('click', handleOk);
+            cancelBtn.addEventListener('click', handleCancel);
+        }
+
+        async function toggleMos(type, state) {
+            const label = document.getElementById(`bms-mos-${type}`);
+            const originalText = label.innerText;
+            const originalColor = label.style.color;
+
+            // Feedback visual inmediato
+            label.innerText = "PROCESANDO...";
+            label.style.color = "var(--warning)";
+
+            try {
+                const response = await fetch('/api/bms/control', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type, state })
+                });
+                
+                if (!response.ok) {
+                    const result = await response.json();
+                    showToast(result.error || "Error al enviar comando", "error");
+                    // Revertir si falló
+                    label.innerText = originalText;
+                    label.style.color = originalColor;
+                    document.getElementById(`switch-mos-${type}`).checked = !state;
+                } else {
+                    showToast(`Comando MOS ${type.toUpperCase()} enviado con éxito`, "success");
+                    // Si fue exitoso, esperamos 5 segundos y forzamos una lectura manual
+                    setTimeout(() => {
+                        fetchBmsLatest();
+                    }, 5000);
+                }
+            } catch (e) {
+                console.error(e);
+                showToast("Error de conexión con el servidor", "error");
+                label.innerText = originalText;
+                label.style.color = originalColor;
+            }
         }
 
         initChart();
         fetchReadings();
-        // El polling ya no es necesario gracias a Socket.io, 
-        // pero mantenemos una verificación de estado cada 1 min por si acaso
+        fetchBmsLatest();
+        
         setInterval(() => {
             if (globalLastReadingTime) {
                 updateStatusBadge(globalLastReadingTime);
             }
-        }, 30000); // Cada 30 segundos verificar salud
+        }, 30000);
         
         setInterval(updateLatestCards, 60000);
     </script>
