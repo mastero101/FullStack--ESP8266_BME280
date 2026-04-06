@@ -108,6 +108,94 @@
     <script src="lib/chart.min.js"></script>
     <script src="lib/lucide.min.js"></script>
     <script src="lib/socket.io.min.js"></script>
+    <style>
+        /* Nav Tabs Scrollable */
+        .nav-tabs {
+            -ms-overflow-style: none; scrollbar-width: none;
+        }
+        .nav-tabs::-webkit-scrollbar { display: none; }
+        .btn-filter { flex-shrink: 0; min-width: fit-content; }
+
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                align-items: center !important;
+                text-align: center;
+                gap: 1.5rem;
+            }
+            .header-actions {
+                width: 100%;
+                justify-content: center;
+            }
+            .nav-tabs {
+                display: none !important;
+            }
+            .nav-mobile {
+                display: block !important;
+                width: 100%;
+                margin-top: 1rem;
+                position: relative;
+            }
+            .nav-custom-dropdown {
+                width: 100%;
+                background: rgba(255,255,255,0.08);
+                border: 1px solid rgba(255,255,255,0.15);
+                border-radius: 14px;
+                color: white;
+                padding: 0.9rem 1.3rem;
+                font-size: 1rem;
+                font-weight: 600;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+            .nav-custom-dropdown:active {
+                transform: scale(0.98);
+                background: rgba(255,255,255,0.12);
+            }
+            .nav-dropdown-items {
+                display: none;
+                position: absolute;
+                top: calc(100% + 8px);
+                left: 0;
+                width: 100%;
+                background: rgba(15, 23, 42, 0.95);
+                backdrop-filter: blur(15px);
+                border: 1px solid rgba(255,255,255,0.15);
+                border-radius: 14px;
+                z-index: 9999;
+                overflow: hidden;
+                box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            }
+            .nav-dropdown-items.show {
+                display: block;
+                animation: slideUp 0.3s ease;
+            }
+            .nav-item {
+                padding: 1.1rem 1.4rem;
+                color: rgba(255,255,255,0.8);
+                text-decoration: none;
+                display: block;
+                border-bottom: 1px solid rgba(255,255,255,0.05);
+                transition: all 0.2s;
+            }
+            .nav-item:last-child { border-bottom: none; }
+            .nav-item:active { background: rgba(255,255,255,0.1); }
+            .nav-item.active {
+                background: linear-gradient(135deg, rgba(96, 165, 250, 0.2), rgba(16, 185, 129, 0.1));
+                color: white;
+                font-weight: 700;
+            }
+
+            @keyframes slideUp {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        }
+        .nav-mobile { display: none; }
+    </style>
 </head>
 
 <body>
@@ -300,11 +388,11 @@
             </div>
             <div class="modal-body">
                 <div class="stats-tabs">
-                    <button class="tab-btn" onclick="switchStatsTab('1h')">1h</button>
-                    <button class="tab-btn active" onclick="switchStatsTab('24h')">24h</button>
-                    <button class="tab-btn" onclick="switchStatsTab('7d')">7d</button>
-                    <button class="tab-btn" onclick="switchStatsTab('global')">Total</button>
-                    <button class="tab-btn" onclick="switchStatsTab('custom')">Rango</button>
+                    <button class="tab-btn" data-tab="1h" onclick="switchStatsTab('1h')">1h</button>
+                    <button class="tab-btn active" data-tab="24h" onclick="switchStatsTab('24h')">24h</button>
+                    <button class="tab-btn" data-tab="7d" onclick="switchStatsTab('7d')">7d</button>
+                    <button class="tab-btn" data-tab="global" onclick="switchStatsTab('global')">Global</button>
+                    <button class="tab-btn" data-tab="custom" onclick="switchStatsTab('custom')">Rango</button>
                 </div>
                 <div id="stats-content-1h" class="stats-grid" style="display: none;">
                     <div class="stat-box">
@@ -544,13 +632,31 @@
             <div>
                 <h1>Batería LiFePO4</h1>
                 <p style="color: var(--text-muted)">Monitoreo Batería en tiempo real</p>
-                <div class="nav-tabs" style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/'">Clima</button>
-                    <button class="btn-filter active">Batería</button>
-                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/solar.html'">Solar</button>
+                <div class="nav-tabs" style="margin-top: 1rem; display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch;">
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;" onclick="window.location.href='/'">Clima</button>
+                    <button class="btn-filter active" style="white-space: nowrap;">Batería</button>
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;" onclick="window.location.href='/solar.html'">Solar</button>
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;" onclick="window.location.href='/inverter'">Inversor</button>
+                </div>
+
+                <!-- Menú móvil personalizado -->
+                <div class="nav-mobile">
+                    <div class="nav-custom-dropdown" onclick="toggleMobileNav()">
+                        <span>Sección: Batería</span>
+                        <i data-lucide="chevron-down" id="nav-chevron"></i>
+                    </div>
+                    <div class="nav-dropdown-items" id="mobile-nav-items">
+                        <a href="/" class="nav-item">Monitor: Clima</a>
+                        <a href="/battery.html" class="nav-item active">Monitor: Batería</a>
+                        <a href="/solar.html" class="nav-item">Monitor: Solar</a>
+                        <a href="/inverter" class="nav-item">Monitor: Inversor</a>
+                    </div>
                 </div>
             </div>
             <div class="header-actions" style="display: flex; align-items: center; gap: 1rem;">
+                <button class="btn-icon" id="btn-refresh-stats" onclick="updateStats()" title="Refrescar Estadísticas" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2);">
+                    <i data-lucide="refresh-cw"></i>
+                </button>
                 <button class="btn-icon" onclick="window.location.href='/kiosk-battery'" title="Modo Quiosco Batería">
                     <i data-lucide="layout-dashboard"></i>
                 </button>
@@ -1186,10 +1292,6 @@
                     const start = document.getElementById('stats-start-date').value;
                     const end = document.getElementById('stats-end-date').value;
                     if (start && end) {
-                        if (new Date(start) > new Date(end)) {
-                            alert('La fecha de fin debe ser posterior a la de inicio');
-                            return;
-                        }
                         url += `?startDate=${start}&endDate=${end}T23:59:59`;
                     }
                 }
@@ -1197,126 +1299,42 @@
                 const response = await fetch(url);
                 const data = await response.json();
                 
-                // Helper to update boxes
                 const updateBox = (prefix, stats) => {
                     if (!stats) return;
                     
-                    // Update Sample Count if it exists
                     const countEl = document.getElementById(`stat-${prefix}-count`);
-                    if (countEl && stats.count !== undefined) {
-                        countEl.innerText = `${stats.count.toLocaleString()} registros`;
-                    }
+                    if (countEl && stats.count !== undefined) countEl.innerText = `${stats.count.toLocaleString()} registros`;
 
                     const fields = ['min-volt', 'max-volt', 'avg-volt', 'med-volt', 'rng-volt', 'min-curr', 'max-curr', 'avg-curr', 'med-curr', 'rng-curr', 'min-pow', 'max-pow', 'avg-pow', 'med-pow', 'rng-pow'];
-
                     fields.forEach(field => {
                         const el = document.getElementById(`stat-${prefix}-${field}`);
                         if (!el) return;
-                        
-                        const apiKey = field.replace('-', '_');
-                        let value = stats[apiKey];
-                        
-                        if (value === null || value === undefined) {
-                            el.innerText = '--';
-                            return;
-                        }
-
-                        if (field.includes('volt') || field.includes('curr') || field.includes('pow')) {
-                            let unit = '';
-                            if (field.includes('volt')) unit = 'V';
-                            if (field.includes('curr')) { unit = 'A'; value = value / 1000.0; } 
-                            if (field.includes('pow')) { unit = 'W'; value = value / 1000.0; }
-
-                            el.innerText = value.toFixed(1) + unit;
-                            
-                            // Add timestamps if available for min/max
-                            if (field.startsWith('min') || field.startsWith('max')) {
-                                const timeKey = apiKey + '_at';
-                                if (stats[timeKey]) {
-                                    const time = new Date(stats[timeKey]).toLocaleString();
-                                    el.title = `Ocurrió el: ${time}`;
-                                    el.style.cursor = 'help';
-                                    el.style.borderBottom = '1px dotted rgba(255,255,255,0.3)';
-                                }
-                            }
-                        }
+                        const val = stats[field.replace('-', '_')];
+                        if (val === null || val === undefined) return el.innerText = '--';
+                        let unit = field.includes('volt') ? 'V' : (field.includes('curr') ? 'A' : 'W');
+                        let finalVal = (unit === 'V') ? val : val / 1000.0;
+                        el.innerText = finalVal.toFixed(1) + unit;
                     });
-
-                    // Energy & Cycles
-                    const capAh = parseFloat(localStorage.getItem('battCapacityAh')) || 100;
-                    const nomVolt = parseFloat(localStorage.getItem('battNominalVolt')) || 24;
-                    const capWh = capAh * nomVolt;
 
                     const chargedEl = document.getElementById(`stat-${prefix}-charged`);
                     const dischargedEl = document.getElementById(`stat-${prefix}-discharged`);
-                    const cyclesEl = document.getElementById(`stat-${prefix}-cycles`);
-
-                    if (chargedEl && stats.charged_wh !== undefined) {
-                        const val = stats.charged_wh;
-                        chargedEl.innerText = val > 1000 ? (val/1000).toFixed(2) + ' kWh' : val.toFixed(1) + ' Wh';
-                    }
-                    if (dischargedEl && stats.discharged_wh !== undefined) {
-                        const val = stats.discharged_wh;
-                        dischargedEl.innerText = val > 1000 ? (val/1000).toFixed(2) + ' kWh' : val.toFixed(1) + ' Wh';
-                        
-                        if (cyclesEl) {
-                            const cycles = val / capWh;
-                            cyclesEl.innerText = cycles.toFixed(3);
-                        }
-                    }
-
-                    // Voltage-based estimation
-                    const spentAhEl = document.getElementById(`stat-${prefix}-spent-ah`);
-                    if (spentAhEl && stats.first_volt && stats.last_volt) {
-                        const fVolt = parseFloat(localStorage.getItem('battFullVolt')) || 28.4;
-                        const eVolt = parseFloat(localStorage.getItem('battEmptyVolt')) || 22.0;
-                        
-                        const socStart = Math.max(0, Math.min(100, (stats.first_volt - eVolt) / (fVolt - eVolt) * 100));
-                        const socEnd = Math.max(0, Math.min(100, (stats.last_volt - eVolt) / (fVolt - eVolt) * 100));
-                        
-                        const socDiff = socStart - socEnd;
-                        if (socDiff > 0) {
-                            const spentAh = (socDiff * capAh) / 100;
-                            spentAhEl.innerText = spentAh.toFixed(1) + ' Ah (' + socDiff.toFixed(1) + '%)';
-                        } else {
-                            spentAhEl.innerText = 'Cargando/Estable';
-                        }
-                    }
-
-                    // Update Stability (Standard Deviation)
-                    ['volt', 'curr'].forEach(type => {
-                        const stdEl = document.getElementById(`stat-${prefix}-std-${type}`);
-                        if (stdEl && stats[`std_${type}`] !== undefined) {
-                            const val = stats[`std_${type}`];
-                            let label = 'Estable';
-                            let color = '#10b981';
-                            if (val > (type === 'volt' ? 0.5 : 2000)) { label = 'Inestable'; color = '#f43f5e'; }
-                            else if (val > (type === 'volt' ? 0.2 : 500)) { label = 'Variable'; color = '#f59e0b'; }
-                            
-                            stdEl.innerHTML = `<span style="color: ${color}; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">${label}</span>`;
-                            stdEl.title = `Desviación Estándar: ${val.toFixed(2)}`;
-                        }
-                    });
+                    if (chargedEl && stats.charged_wh !== undefined) chargedEl.innerText = stats.charged_wh > 1000 ? (stats.charged_wh/1000).toFixed(2) + ' kWh' : stats.charged_wh.toFixed(1) + ' Wh';
+                    if (dischargedEl && stats.discharged_wh !== undefined) dischargedEl.innerText = stats.discharged_wh > 1000 ? (stats.discharged_wh/1000).toFixed(2) + ' kWh' : stats.discharged_wh.toFixed(1) + ' Wh';
                 };
 
                 updateBox('24h', data.last24h);
                 updateBox('global', data.global);
-                if (data.range) updateBox('range', data.range);
 
-                // Fetch extra presets manually since API is currently optimized for 24h/Global
-                const fetchExtra = async (rangeLabel, hours) => {
-                    const start = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
-                    const end = new Date().toISOString();
-                    const res = await fetch(`/api/battery/stats?startDate=${start}&endDate=${end}`);
-                    const d = await res.json();
-                    updateBox(rangeLabel, d.range);
-                };
-
-                // Si estamos viendo la pestaña de 1h o 7d, cargarlos bajo demanda
-                const activeTab = document.querySelector('.tab-btn.active').innerText;
-                if (activeTab === '1h') await fetchExtra('1h', 1);
-                if (activeTab === '7d') await fetchExtra('7d', 168);
-
+                const activeTabEl = document.querySelector('.tab-btn.active');
+                const activeTab = activeTabEl ? activeTabEl.getAttribute('data-tab') : '24h';
+                
+                if (activeTab === '1h' || activeTab === '7d') {
+                    const hours = activeTab === '1h' ? 1 : 168;
+                    const startRange = new Date(Date.now() - hours * 3600000).toISOString();
+                    const resRange = await fetch(`/api/battery/stats?startDate=${startRange}&endDate=${new Date().toISOString()}`);
+                    const dRange = await resRange.json();
+                    updateBox(activeTab, dRange.range);
+                }
                 lucide.createIcons();
             } catch (e) {
                 console.error("Error updating stats:", e);
@@ -1562,6 +1580,19 @@
             
             const timeStr = (data.created_at || data.last_update) ? new Date(data.created_at || data.last_update).toLocaleTimeString() : new Date().toLocaleTimeString();
             document.getElementById('bms-last-seen').innerText = 'Visto: ' + timeStr;
+
+            // Actualizar Consumo Hoy (vía API de estadísticas para ser precisos)
+            fetch('/api/battery/stats').then(r => r.json()).then(stats => {
+                if (stats.today) {
+                    const cWh = stats.today.charged_wh || 0;
+                    const dWh = stats.today.discharged_wh || 0;
+                    document.getElementById('bms-daily-charged').innerText = cWh > 1000 ? (cWh/1000).toFixed(2) + ' kWh' : cWh.toFixed(1) + ' Wh';
+                    document.getElementById('bms-daily-discharged').innerText = dWh > 1000 ? (dWh/1000).toFixed(2) + ' kWh' : dWh.toFixed(1) + ' Wh';
+                    const net = cWh - dWh;
+                    document.getElementById('bms-daily-net').innerText = (net > 0 ? '+' : '') + (net > 1000 || net < -1000 ? (net/1000).toFixed(2) + ' kWh' : net.toFixed(1) + ' Wh');
+                    document.getElementById('bms-daily-net').style.color = net >= 0 ? '#10b981' : '#f43f5e';
+                }
+            });
         }
 
         // --- Socket.io Real-Time Updates ---
@@ -1945,6 +1976,25 @@
         }, 30000);
         
         setInterval(updateLatestCards, 60000);
+
+        function toggleMobileNav() {
+            const menu = document.getElementById('mobile-nav-items');
+            const chev = document.getElementById('nav-chevron');
+            if (menu) menu.classList.toggle('show');
+            if (chev) chev.style.transform = menu.classList.contains('show') ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+
+        // Cerrar menú al hacer clic fuera
+        window.addEventListener('click', (e) => {
+            if (document.getElementById('mobile-nav-items') && !e.target.closest('.nav-mobile')) {
+                document.getElementById('mobile-nav-items').classList.remove('show');
+                const chev = document.getElementById('nav-chevron');
+                if (chev) chev.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        // Initialize Lucide icons
+        lucide.createIcons();
     </script>
 </body>
 </html>

@@ -28,7 +28,10 @@ static NimBLEUUID writeUUID("fff2");
 NimBLEClient* pClient = nullptr;
 NimBLERemoteCharacteristic* pWriteChar = nullptr;
 bool bmsConnected = false;
-unsigned long lastPollTime = 0;
+unsigned long lastBmsMillis = 0; // Marca de tiempo de la última notificación recibida
+unsigned long lastSendMillis = 0;
+const long sendInterval = 60000;
+unsigned long lastConnectionFailMillis = 0; // Para el reset de emergencia
 AsyncWebServer server(80);
 
 struct BMSData {
@@ -177,10 +180,14 @@ void notifyCallback(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* 
   else if (cmd == 0x92) { // Temperatures
     bmsData.temp1 = pData[4] - 40;
   }
-  else if (cmd == 0x93) { // Status
-    // Según protocolo Daly UART: pData[5] = Charge, pData[6] = Discharge
+  else if (cmd == 0x93) { // Status (MOSFETs)
     bmsData.charge_mos = pData[5] == 1;
     bmsData.discharge_mos = pData[6] == 1;
+  }
+  
+  // Marcar que hemos recibido datos válidos
+  if (cmd >= 0x90 && cmd <= 0x93) {
+    lastBmsMillis = millis();
   }
 }
 
@@ -206,8 +213,13 @@ void sendDataToAPI() {
   String body;
   serializeJson(doc, body);
   
-  int code = http.POST(body);
-  Serial.println("API POST Response: " + String(code));
+  // Watchdog: Solo enviar a la API si tenemos datos frescos (últimos 150 seg - 2.5 min)
+  if (millis() - lastBmsMillis < 150000) {
+    int code = http.POST(body);
+    Serial.println("API POST Response: " + String(code));
+  } else {
+    Serial.println("!!! Datos BMS CADUCADOS. No se envían a la API para evitar reportes falsos.");
+  }
   http.end();
 }
 
@@ -215,27 +227,49 @@ void loop() {
   if (!bmsConnected) {
     if (connectBMS()) {
       Serial.println("BMS Connected and Subscribed.");
+      lastBmsMillis = millis(); // Resetear al conectar
+      lastConnectionFailMillis = 0;
     } else {
+      if (lastConnectionFailMillis == 0) lastConnectionFailMillis = millis();
+      
+      // Si lleva 10 minutos sin poder conectar al BMS, reiniciar ESP32 por seguridad
+      if (millis() - lastConnectionFailMillis > 600000) {
+        Serial.println("Fallo persistente de conexión. Reiniciando hardware...");
+        ESP.restart();
+      }
       delay(5000);
       return;
     }
   }
 
-  if (millis() - lastPollTime > pollInterval) {
+  // --- Watchdog de Datos Zombi ---
+  // Si estamos "conectados" pero no ha llegado ni un dato real en 3 minutos, forzar desconexión
+  if (bmsConnected && (millis() - lastBmsMillis > 180000)) {
+    Serial.println("Watchdog: No se reciben datos del BMS. Forzando reconexión...");
+    if (pClient) pClient->disconnect();
+    bmsConnected = false;
+    return;
+  }
+
+  // Polling BMS Data cada sendInterval (60s)
+  if (millis() - lastSendMillis > sendInterval) {
     Serial.println("Polling BMS Data...");
     
-    pWriteChar->writeValue(CMD_SOC, 13);
-    delay(300);
-    pWriteChar->writeValue(CMD_CELLS, 13);
-    delay(300);
-    pWriteChar->writeValue(CMD_TEMP, 13);
-    delay(300);
-    pWriteChar->writeValue(CMD_STATUS, 13);
-    delay(400); // Wait for last notification
+    if (pWriteChar) {
+      pWriteChar->writeValue(CMD_SOC, 13, false);
+      delay(200);
+      pWriteChar->writeValue(CMD_CELLS, 13, false);
+      delay(200);
+      pWriteChar->writeValue(CMD_TEMP, 13, false);
+      delay(200);
+      pWriteChar->writeValue(CMD_STATUS, 13, false);
+      delay(200);
+    }
     
     sendDataToAPI();
-    lastPollTime = millis();
+    lastSendMillis = millis();
   }
   
   ElegantOTA.loop();
+  delay(10);
 }

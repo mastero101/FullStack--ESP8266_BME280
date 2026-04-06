@@ -43,6 +43,10 @@ app.get('/environment', (req, res) => {
     res.sendFile(__dirname + '/public/environment.html');
 });
 
+app.get('/inverter', (req, res) => {
+    res.sendFile(__dirname + '/public/inverter.html');
+});
+
 // --- WEATHER READINGS ---
 
 // GET latest reading
@@ -327,7 +331,8 @@ app.get('/api/battery/stats', async (req, res) => {
         res.json({
             global: results[0].rows[0],
             last24h: results[1].rows[0],
-            range: rangeStatsQuery ? results[2].rows[0] : null
+            today: results[2].rows[0],
+            range: rangeStatsQuery ? results[3].rows[0] : null
         });
     } catch (err) {
         console.error(err);
@@ -761,6 +766,68 @@ app.post('/api/bms/control', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "No se pudo contactar con el ESP32 (Timeout)" });
+    }
+});
+
+// --- INVERTER READINGS (PowMr) ---
+
+// GET latest inverter reading
+app.get('/api/inverter/latest', async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM inverter_readings ORDER BY created_at DESC LIMIT 1');
+        res.json(result.rows[0] || {});
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Database error" });
+    }
+});
+
+// GET historical inverter readings
+app.get('/api/inverter', async (req, res) => {
+    try {
+        const { startDate, endDate, limit } = req.query;
+        let queryText = 'SELECT * FROM inverter_readings';
+        const params = [];
+
+        if (startDate && endDate) {
+            queryText += ' WHERE created_at BETWEEN $1 AND $2 ORDER BY created_at DESC';
+            params.push(new Date(startDate), new Date(endDate));
+        } else {
+            queryText += ' ORDER BY created_at DESC';
+            const queryLimit = limit ? parseInt(limit) : 100;
+            params.push(queryLimit);
+            queryText += ' LIMIT $1';
+        }
+
+        const result = await db.query(queryText, params);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Database error" });
+    }
+});
+
+// POST new inverter reading
+app.post('/api/inverter', async (req, res) => {
+    const { ac_v, ac_f, out_v, out_f, out_va, out_w, load_p, bus_v, batt_v, batt_c, batt_cap, temp, pv_c, pv_v, pv_w, scc_v, batt_d, batt_w, tx_count, rx_count, parse_errors, frames_ok, timestamp } = req.body;
+
+    try {
+        const queryText = `
+            INSERT INTO inverter_readings(
+                ac_v, ac_f, out_v, out_f, out_va, out_w, load_p, bus_v, batt_v, batt_c, batt_cap, temp, pv_c, pv_v, pv_w, scc_v, batt_d, batt_w, tx_count, rx_count, parse_errors, frames_ok, timestamp
+            ) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23) RETURNING *`;
+        
+        const finalTimestamp = timestamp || Math.floor(Date.now() / 1000);
+        const values = [ac_v, ac_f, out_v, out_f, out_va, out_w, load_p, bus_v, batt_v, batt_c, batt_cap, temp, pv_c, pv_v, pv_w, scc_v, batt_d, batt_w, tx_count || 0, rx_count || 0, parse_errors || 0, frames_ok || 0, finalTimestamp];
+        
+        const result = await db.query(queryText, values);
+        const newReading = result.rows[0];
+
+        io.emit('newInverterReading', newReading);
+        res.status(201).json(newReading);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Database error" });
     }
 });
 

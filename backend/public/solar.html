@@ -8,6 +8,94 @@
     <script src="lib/chart.min.js"></script>
     <script src="lib/lucide.min.js"></script>
     <script src="lib/socket.io.min.js"></script>
+    <style>
+        /* Nav Tabs Scrollable */
+        .nav-tabs {
+            -ms-overflow-style: none; scrollbar-width: none;
+        }
+        .nav-tabs::-webkit-scrollbar { display: none; }
+        .btn-filter { flex-shrink: 0; min-width: fit-content; }
+
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                align-items: center !important;
+                text-align: center;
+                gap: 1.5rem;
+            }
+            .header-actions {
+                width: 100%;
+                justify-content: center;
+            }
+            .nav-tabs {
+                display: none !important;
+            }
+            .nav-mobile {
+                display: block !important;
+                width: 100%;
+                margin-top: 1rem;
+                position: relative;
+            }
+            .nav-custom-dropdown {
+                width: 100%;
+                background: rgba(255,255,255,0.08);
+                border: 1px solid rgba(255,255,255,0.15);
+                border-radius: 14px;
+                color: white;
+                padding: 0.9rem 1.3rem;
+                font-size: 1rem;
+                font-weight: 600;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+            .nav-custom-dropdown:active {
+                transform: scale(0.98);
+                background: rgba(255,255,255,0.12);
+            }
+            .nav-dropdown-items {
+                display: none;
+                position: absolute;
+                top: calc(100% + 8px);
+                left: 0;
+                width: 100%;
+                background: rgba(15, 23, 42, 0.95);
+                backdrop-filter: blur(15px);
+                border: 1px solid rgba(255,255,255,0.15);
+                border-radius: 14px;
+                z-index: 9999;
+                overflow: hidden;
+                box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            }
+            .nav-dropdown-items.show {
+                display: block;
+                animation: slideUp 0.3s ease;
+            }
+            .nav-item {
+                padding: 1.1rem 1.4rem;
+                color: rgba(255,255,255,0.8);
+                text-decoration: none;
+                display: block;
+                border-bottom: 1px solid rgba(255,255,255,0.05);
+                transition: all 0.2s;
+            }
+            .nav-item:last-child { border-bottom: none; }
+            .nav-item:active { background: rgba(255,255,255,0.1); }
+            .nav-item.active {
+                background: linear-gradient(135deg, rgba(96, 165, 250, 0.2), rgba(16, 185, 129, 0.1));
+                color: white;
+                font-weight: 700;
+            }
+
+            @keyframes slideUp {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        }
+        .nav-mobile { display: none; }
+    </style>
 </head>
 
 <body>
@@ -250,10 +338,25 @@
             <div>
                 <h1>INA228 Solar</h1>
                 <p style="color: var(--text-muted)">Monitoreo Panel Solar en tiempo real</p>
-                <div class="nav-tabs" style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/'">Clima</button>
-                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/battery.html'">Batería</button>
-                    <button class="btn-filter active">Solar</button>
+                <div class="nav-tabs" style="margin-top: 1rem; display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch;">
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;" onclick="window.location.href='/'">Clima</button>
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;" onclick="window.location.href='/battery.html'">Batería</button>
+                    <button class="btn-filter active" style="white-space: nowrap;">Solar</button>
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;" onclick="window.location.href='/inverter'">Inversor</button>
+                </div>
+
+                <!-- Menú móvil personalizado -->
+                <div class="nav-mobile">
+                    <div class="nav-custom-dropdown" onclick="toggleMobileNav()">
+                        <span>Sección: Solar</span>
+                        <i data-lucide="chevron-down" id="nav-chevron"></i>
+                    </div>
+                    <div class="nav-dropdown-items" id="mobile-nav-items">
+                        <a href="/" class="nav-item">Monitor: Clima</a>
+                        <a href="/battery.html" class="nav-item">Monitor: Batería</a>
+                        <a href="/solar.html" class="nav-item active">Monitor: Solar</a>
+                        <a href="/inverter" class="nav-item">Monitor: Inversor</a>
+                    </div>
                 </div>
             </div>
             <div class="header-actions" style="display: flex; align-items: center; gap: 1rem;">
@@ -1299,6 +1402,24 @@
         }, 30000); // Cada 30 segundos verificar salud
         
         setInterval(updateLatestCards, 60000);
+        function toggleMobileNav() {
+            const menu = document.getElementById('mobile-nav-items');
+            const chev = document.getElementById('nav-chevron');
+            if (menu) menu.classList.toggle('show');
+            if (chev) chev.style.transform = menu.classList.contains('show') ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+
+        // Cerrar menú al hacer clic fuera
+        window.addEventListener('click', (e) => {
+            if (document.getElementById('mobile-nav-items') && !e.target.closest('.nav-mobile')) {
+                document.getElementById('mobile-nav-items').classList.remove('show');
+                const chev = document.getElementById('nav-chevron');
+                if (chev) chev.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        // Initialize Lucide icons
+        lucide.createIcons();
     </script>
 </body>
 </html>

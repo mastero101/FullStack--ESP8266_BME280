@@ -90,6 +90,34 @@ const initDb = async () => {
       discharge_mos BOOLEAN NOT NULL,
       created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS inverter_readings (
+      id SERIAL PRIMARY KEY,
+      ac_v FLOAT,
+      ac_f FLOAT,
+      out_v FLOAT,
+      out_f FLOAT,
+      out_va INT,
+      out_w INT,
+      load_p INT,
+      bus_v FLOAT,
+      batt_v FLOAT,
+      batt_c INT,
+      batt_cap INT,
+      temp FLOAT,
+      pv_c INT,
+      pv_v FLOAT,
+      pv_w INT,
+      scc_v FLOAT,
+      batt_d INT,
+      batt_w INT,
+      tx_count INT,
+      rx_count INT,
+      parse_errors INT,
+      frames_ok INT,
+      timestamp BIGINT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    );
   `;
   try {
     await pool.query(queryText);

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inversor PowMr - MasterOS</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="lib/chart.min.js"></script>
+    <script src="lib/lucide.min.js"></script>
+    <script src="lib/socket.io.min.js"></script>
+    <style>
+        /* Ajustes específicos para el Inversor y Móvil */
+        .card.solar::after { background: #fbbf24; }
+        .card.battery::after { background: #10b981; }
+        .card.load::after { background: #f43f5e; }
+        .card.ac::after { background: #60a5fa; }
+        
+        .critical { animation: pulse-red 2s infinite; }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(244, 63, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+        }
+
+        /* Nav Tabs Scrollable */
+        .nav-tabs {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        .nav-tabs::-webkit-scrollbar {
+            display: none; /* Chrome, Safari and Opera */
+        }
+        .btn-filter {
+            flex-shrink: 0;
+            min-width: fit-content;
+        }
+
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                align-items: center !important;
+                text-align: center;
+                gap: 1.5rem;
+            }
+            .header-actions {
+                width: 100%;
+                justify-content: center;
+            }
+            .nav-tabs {
+                display: none !important; /* Escondemos las pestañas en móvil */
+            }
+            .nav-mobile {
+                display: block !important;
+                width: 100%;
+                margin-top: 1rem;
+                position: relative;
+            }
+            .nav-custom-dropdown {
+                width: 100%;
+                background: rgba(255,255,255,0.08);
+                border: 1px solid rgba(255,255,255,0.15);
+                border-radius: 14px;
+                color: white;
+                padding: 0.9rem 1.3rem;
+                font-size: 1rem;
+                font-weight: 600;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+            .nav-custom-dropdown:active {
+                transform: scale(0.98);
+                background: rgba(255,255,255,0.12);
+            }
+            .nav-dropdown-items {
+                display: none;
+                position: absolute;
+                top: calc(100% + 8px);
+                left: 0;
+                width: 100%;
+                background: rgba(15, 23, 42, 0.95);
+                backdrop-filter: blur(15px);
+                border: 1px solid rgba(255,255,255,0.15);
+                border-radius: 14px;
+                z-index: 9999;
+                overflow: hidden;
+                box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            }
+            .nav-dropdown-items.show {
+                display: block;
+                animation: slideUp 0.3s ease;
+            }
+            .nav-item {
+                padding: 1.1rem 1.4rem;
+                color: rgba(255,255,255,0.8);
+                text-decoration: none;
+                display: block;
+                border-bottom: 1px solid rgba(255,255,255,0.05);
+                transition: all 0.2s;
+            }
+            .nav-item:last-child { border-bottom: none; }
+            .nav-item:active { background: rgba(255,255,255,0.1); }
+            .nav-item.active {
+                background: linear-gradient(135deg, rgba(96, 165, 250, 0.2), rgba(16, 185, 129, 0.1));
+                color: white;
+                font-weight: 700;
+            }
+
+            @keyframes slideUp {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        }
+        .nav-mobile { display: none; }
+    </style>
+</head>
+<body class="dark-theme">
+    <div class="container">
+        <header>
+            <div>
+                <h1>Monitor de Inversor PowMr</h1>
+                <p style="color: var(--text-muted)">Híbrido 3KVA - 110V | Sincronización Real</p>
+                <div class="nav-tabs" style="margin-top: 1rem; display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch;">
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;" onclick="window.location.href='/'">Clima</button>
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;" onclick="window.location.href='/battery.html'">Batería</button>
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;" onclick="window.location.href='/solar.html'">Solar</button>
+                    <button class="btn-filter active" style="white-space: nowrap;">Inversor</button>
+                </div>
+                
+                <!-- Menú móvil personalizado -->
+                <div class="nav-mobile">
+                    <div class="nav-custom-dropdown" onclick="toggleMobileNav()">
+                        <span>Sección: Inversor</span>
+                        <i data-lucide="chevron-down" id="nav-chevron"></i>
+                    </div>
+                    <div class="nav-dropdown-items" id="mobile-nav-items">
+                        <a href="/" class="nav-item">Monitor: Clima</a>
+                        <a href="/battery.html" class="nav-item">Monitor: Batería</a>
+                        <a href="/solar.html" class="nav-item">Monitor: Solar</a>
+                        <a href="/inverter" class="nav-item active">Monitor: Inversor</a>
+                    </div>
+                </div>
+            </div>
+            <div class="header-actions" style="display: flex; align-items: center; gap: 1rem;">
+                <div class="status-badge" style="flex-direction: column; align-items: flex-start; gap: 0.1rem; padding: 0.5rem 1.2rem; border-radius: 12px; min-width: 140px;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <span id="status-dot" class="dot"></span>
+                        <span id="status-text" style="font-weight: 700;">Buscando...</span>
+                    </div>
+                    <span id="last-seen" style="font-size: 0.65rem; color: var(--text-muted); margin-left: 1.1rem;">Visto: --</span>
+                </div>
+                <button class="btn-icon" onclick="toggleSettings()" title="Ajustes">
+                    <i data-lucide="settings"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="grid">
+            <!-- SOLAR -->
+            <div class="card solar" id="card-pv">
+                <div class="card-label">
+                    <i data-lucide="sun" style="color: #fbbf24"></i> Generación Solar
+                </div>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="pv-w">--</span><span class="card-unit">W</span>
+                    </div>
+                    <span id="pv-trend" class="trend-badge"></span>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item">Volt: <b id="pv-v">--</b>V</div>
+                    <div class="stat-item">Amp: <b id="pv-c">--</b>A</div>
+                </div>
+            </div>
+
+            <!-- BATERIA -->
+            <div class="card battery" id="card-batt">
+                <div class="card-label">
+                    <i data-lucide="battery" style="color: #10b981"></i> Banco Batería
+                </div>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="batt-v">--</span><span class="card-unit">V</span>
+                    </div>
+                    <span id="batt-trend" class="trend-badge"></span>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item">Flujo: <b id="batt-w">--</b>W (<b id="batt-c">--</b>A)</div>
+                    <div class="stat-item">Cap: <b id="batt-cap">--</b>%</div>
+                </div>
+            </div>
+
+            <!-- CARGA -->
+            <div class="card load" id="card-out">
+                <div class="card-label">
+                    <i data-lucide="home" style="color: #f43f5e"></i> Carga (Salida)
+                </div>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="out-w">--</span><span class="card-unit">W</span>
+                    </div>
+                    <span id="out-trend" class="trend-badge"></span>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item">Nivel: <b id="load-p">--</b>%</div>
+                    <div class="stat-item"><b id="out-v">--</b>V   <b id="out-f">--</b>Hz</div>
+                </div>
+            </div>
+
+            <!-- RED AC -->
+            <div class="card ac" id="card-ac">
+                <div class="card-label">
+                    <i data-lucide="zap" style="color: #60a5fa"></i> Red AC (Entrada)
+                </div>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="ac-v">--</span><span class="card-unit">V</span>
+                    </div>
+                    <span id="ac-trend" class="trend-badge"></span>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item">Frec: <b id="ac-f">--</b>Hz</div>
+                    <div class="stat-item" id="ac-status-text" style="color: #10b981;">Estable</div>
+                </div>
+            </div>
+
+            <!-- DIAGNÓSTICO DE SISTEMA -->
+            <div class="card" id="card-sys" style="grid-column: span 1; border-color: rgba(167, 139, 250, 0.2);">
+                <div class="card-label">
+                    <i data-lucide="shield-check" style="color: #a78bfa"></i> Estado del Sistema
+                </div>
+                <div class="card-body" style="padding: 0.5rem 0;">
+                    <div style="display: flex; flex-direction: column; gap: 0.8rem; width: 100%;">
+                        <div class="stat-row"><span>Bus Interno:</span> <b id="sys-bus-v">--</b>V</div>
+                        <div class="stat-row"><span>Temp Inversor:</span> <b id="sys-temp">--</b>°C</div>
+                        <div class="stat-row"><span>Factor Potencia:</span> <b id="sys-pf">--</b></div>
+                        <div class="stat-row">
+                            <span>Link Quality:</span> 
+                            <b id="sys-link" style="color: #10b981;">100%</b>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-section" id="chart-container">
+            <div id="loading-overlay" style="display: none;">
+                <i data-lucide="refresh-cw" class="animate-spin"></i>
+            </div>
+            <div class="chart-header">
+                <div class="chart-title-group">
+                    <h2 style="display: flex; align-items: center; gap: 0.8rem; font-size: 1.8rem; color: #60a5fa;">
+                        <i data-lucide="activity" style="width: 28px; height: 28px;"></i> Análisis de Potencia
+                    </h2>
+                    <div class="quick-filters">
+                        <button class="btn-quick" onclick="setQuickRange('hour', this)">1h</button>
+                        <button class="btn-quick active" onclick="setQuickRange('day', this)">24h</button>
+                        <button class="btn-quick" onclick="setQuickRange('week', this)">7d</button>
+                    </div>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 1rem;">
+                    <div class="toggle-legend" id="chart-legend">
+                        <div class="legend-item active" onclick="toggleDataset(0, this)" style="--color: #fbbf24">Solar (W)</div>
+                        <div class="legend-item active" onclick="toggleDataset(1, this)" style="--color: #f43f5e">Carga (W)</div>
+                        <div class="legend-item active" onclick="toggleDataset(2, this)" style="--color: rgba(255,255,255,0.4)">Consumo VA</div>
+                        <div class="legend-item active" onclick="toggleDataset(3, this)" style="--color: #10b981">Batería (V)</div>
+                    </div>
+                    
+                    <div class="filters">
+                        <input type="date" id="start-date">
+                        <input type="date" id="end-date">
+                        <button class="btn-filter" onclick="applyFilters()">Filtrar</button>
+                        <button class="btn-filter" style="background: rgba(255,255,255,0.05); box-shadow: none; border: 1px solid rgba(255,255,255,0.1);" onclick="resetFilters()">Reset</button>
+                        <button class="btn-secondary" onclick="exportToCSV()">
+                            <i data-lucide="download" style="width: 16px;"></i> CSV
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div style="height: 400px; width: 100%;">
+                <canvas id="mainChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        
+        let chart;
+        let globalLastReadingTime = null;
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        function initChart() {
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Solar (W)',
+                            yAxisID: 'yPower',
+                            data: [],
+                            borderColor: '#fbbf24',
+                            backgroundColor: 'transparent',
+                            tension: 0.4,
+                            borderWidth: 3,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Carga (W)',
+                            yAxisID: 'yPower',
+                            data: [],
+                            borderColor: '#f43f5e',
+                            backgroundColor: 'transparent',
+                            tension: 0.4,
+                            borderWidth: 3,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Consumo VA',
+                            yAxisID: 'yPower',
+                            data: [],
+                            borderColor: 'rgba(255,255,255,0.2)',
+                            borderDash: [2, 2],
+                            tension: 0,
+                            borderWidth: 1,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Batería (V)',
+                            yAxisID: 'yVolt',
+                            data: [],
+                            borderColor: '#10b981',
+                            backgroundColor: 'transparent',
+                            tension: 0.4,
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            borderDash: [5, 5]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+                        yPower: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: { display: true, text: 'Potencia (W)', color: '#fbbf24' },
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#fbbf24' }
+                        },
+                        yVolt: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            suggestedMin: 20,
+                            suggestedMax: 30,
+                            title: { display: true, text: 'Voltaje (V)', color: '#10b981' },
+                            grid: { display: false },
+                            ticks: { color: '#10b981' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function toggleDataset(index, element) {
+            const isVisible = chart.isDatasetVisible(index);
+            if (isVisible) {
+                chart.hide(index);
+                element.classList.remove('active');
+            } else {
+                chart.show(index);
+                element.classList.add('active');
+            }
+            chart.update();
+        }
+
+        async function fetchReadings(startDate = null, endDate = null, limit = 144) {
+            loadingOverlay.style.display = 'flex';
+            try {
+                let url = '/api/inverter';
+                if (startDate && endDate) url += `?startDate=${startDate}&endDate=${endDate}`;
+                else url += `?limit=${limit}`;
+
+                const response = await fetch(url);
+                const data = await response.json();
+                const reversed = data.reverse();
+                
+                window.currentData = reversed;
+
+                chart.data.labels = reversed.map(r => {
+                    const date = new Date(r.created_at);
+                    return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                });
+
+                chart.data.datasets[0].data = reversed.map(r => r.pv_w);
+                chart.data.datasets[1].data = reversed.map(r => r.out_w);
+                chart.data.datasets[2].data = reversed.map(r => r.out_va);
+                chart.data.datasets[3].data = reversed.map(r => r.batt_v);
+                
+                chart.update();
+                
+                // IMPORTANTE: Tras el reverse, el ÚLTIMO elemento es el más reciente
+                if (!startDate && reversed.length > 0) {
+                    const latest = reversed[reversed.length - 1];
+                    const previous = reversed.slice(-6, -1).reverse(); // Tomamos los 5 anteriores al último
+                    updateLatestCards(latest, previous);
+                }
+            } catch (err) {
+                console.error('Error fetching data:', err);
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        }
+
+        function updateLatestCards(latest, previous) {
+            document.getElementById('pv-w').innerText = latest.pv_w;
+            document.getElementById('pv-v').innerText = (latest.pv_v || 0).toFixed(1);
+            document.getElementById('pv-c').innerText = latest.pv_c;
+            
+            document.getElementById('batt-v').innerText = (latest.batt_v || 0).toFixed(2);
+            document.getElementById('batt-w').innerText = latest.batt_w;
+            document.getElementById('batt-c').innerText = (latest.batt_c || 0).toFixed(1);
+            document.getElementById('batt-cap').innerText = latest.batt_cap;
+            
+            document.getElementById('out-w').innerText = latest.out_w;
+            document.getElementById('load-p').innerText = latest.load_p;
+            document.getElementById('out-v').innerText = (latest.out_v || 0).toFixed(2);
+            document.getElementById('out-f').innerText = (latest.out_f || 0).toFixed(1);
+            
+            document.getElementById('ac-v').innerText = (latest.ac_v || 0).toFixed(2);
+            document.getElementById('ac-f').innerText = (latest.ac_f || 0).toFixed(1);
+            
+            // Diagnóstico
+            document.getElementById('sys-bus-v').innerText = (latest.bus_v || 0).toFixed(0);
+            document.getElementById('sys-temp').innerText = (latest.temp / 10).toFixed(1);
+            const pf = latest.out_va > 0 ? (latest.out_w / latest.out_va).toFixed(2) : "1.00";
+            document.getElementById('sys-pf').innerText = pf;
+            
+            const linkQuality = latest.tx_count > 0 ? ((latest.frames_ok / latest.tx_count) * 100).toFixed(1) : "0";
+            const linkEl = document.getElementById('sys-link');
+            linkEl.innerText = linkQuality + '%';
+            linkEl.style.color = linkQuality > 95 ? '#10b981' : '#f59e0b';
+            
+            if (previous.length > 0) {
+                const avgPV = previous.reduce((s, r) => s + r.pv_w, 0) / previous.length;
+                const avgOut = previous.reduce((s, r) => s + r.out_w, 0) / previous.length;
+                const avgAC = previous.reduce((s, r) => s + r.ac_v, 0) / previous.length;
+                const avgBatt = previous.reduce((s, r) => s + r.batt_v, 0) / previous.length;
+
+                updateTrend('pv', latest.pv_w, avgPV);
+                updateTrend('out', latest.out_w, avgOut);
+                updateTrend('ac', latest.ac_v, avgAC);
+                updateTrend('batt', latest.batt_v, avgBatt);
+            }
+
+            updateStatusBadge(latest.created_at);
+        }
+
+        function updateTrend(type, newVal, oldVal) {
+            const badge = document.getElementById(`${type}-trend`);
+            if (newVal > oldVal) {
+                badge.innerHTML = '<i data-lucide="trending-up"></i>' + (newVal - oldVal).toFixed(1);
+                badge.className = 'trend-badge trend-up';
+            } else if (newVal < oldVal) {
+                badge.innerHTML = '<i data-lucide="trending-down"></i>' + Math.abs(newVal - oldVal).toFixed(1);
+                badge.className = 'trend-badge trend-down';
+            } else {
+                badge.innerHTML = '<i data-lucide="minus"></i>';
+                badge.className = 'trend-badge trend-equal';
+            }
+            lucide.createIcons();
+        }
+
+        function updateStatusBadge(createdAt) {
+            const lastRead = new Date(createdAt).getTime();
+            const diffMin = (Date.now() - lastRead) / 60000;
+            const dot = document.getElementById('status-dot');
+            const text = document.getElementById('status-text');
+            const seen = document.getElementById('last-seen');
+            
+            dot.className = 'dot ' + (diffMin < 2 ? 'online' : (diffMin < 10 ? 'delayed' : 'offline'));
+            text.innerText = diffMin < 2 ? 'Sistema Online' : (diffMin < 10 ? 'Sistema Demorado' : 'Sistema Offline');
+            seen.innerText = diffMin < 1 ? 'Visto ahora mismo' : `Hace ${Math.floor(diffMin)} min`;
+        }
+
+        function setQuickRange(range, btn) {
+            document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            let limit = range === 'hour' ? 60 : (range === 'day' ? 144 : 1008);
+            fetchReadings(null, null, limit);
+        }
+
+        function applyFilters() {
+            const start = document.getElementById('start-date').value;
+            const end = document.getElementById('end-date').value;
+            if (start && end) {
+                fetchReadings(start, end + ' 23:59:59');
+                document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active'));
+            } else {
+                alert('Por favor selecciona ambas fechas');
+            }
+        }
+
+        function resetFilters() {
+            document.getElementById('start-date').value = '';
+            document.getElementById('end-date').value = '';
+            document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active'));
+            document.querySelector('.btn-quick[onclick*="day"]').classList.add('active');
+            fetchReadings();
+        }
+
+        function exportToCSV() {
+            if (!window.currentData) return;
+            const headers = ["Fecha", "PV Watts", "Load Watts", "Battery Volts", "Grid Volts"];
+            const rows = window.currentData.map(r => [r.created_at, r.pv_w, r.out_w, r.batt_v, r.ac_v]);
+            let csv = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
+            const link = document.createElement("a");
+            link.href = encodeURI(csv);
+            link.download = "inverter_data.csv";
+            link.click();
+        }
+
+        initChart();
+        fetchReadings();
+        
+        function toggleMobileNav() {
+            const menu = document.getElementById('mobile-nav-items');
+            const chev = document.getElementById('nav-chevron');
+            menu.classList.toggle('show');
+            chev.style.transform = menu.classList.contains('show') ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+
+        // Cerrar menú al hacer clic fuera
+        window.addEventListener('click', (e) => {
+            if (!e.target.closest('.nav-mobile')) {
+                document.getElementById('mobile-nav-items').classList.remove('show');
+                document.getElementById('nav-chevron').style.transform = 'rotate(0deg)';
+            }
+        });
+
+        const socket = io();
+        socket.on('newInverterReading', (data) => {
+            // Si no estamos en un rango de fechas manual, actualizamos en tiempo real
+            if (!document.getElementById('start-date').value) {
+                // Agregar a la gráfica sin recargar todo API
+                const time = new Date(data.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                chart.data.labels.push(time);
+                chart.data.datasets[0].data.push(data.pv_w);
+                chart.data.datasets[1].data.push(data.out_w);
+                chart.data.datasets[2].data.push(data.out_va);
+                chart.data.datasets[3].data.push(data.batt_v);
+                
+                // Mantener ventana de datos (ej. 144 puntos)
+                if (chart.data.labels.length > 144) {
+                    chart.data.labels.shift();
+                    chart.data.datasets.forEach(db => db.data.shift());
+                }
+                chart.update('none'); // Update suave
+
+                // Actualizar tarjetas con el dato fresco del socket
+                const history = window.currentData ? window.currentData.slice(-5).reverse() : [];
+                updateLatestCards(data, history);
+                
+                // Actualizar cache local
+                if (window.currentData) {
+                    window.currentData.push(data);
+                    if (window.currentData.length > 200) window.currentData.shift();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

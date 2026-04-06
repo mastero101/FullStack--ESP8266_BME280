@@ -8,6 +8,87 @@
     <script src="lib/chart.min.js"></script>
     <script src="lib/lucide.min.js"></script>
     <script src="lib/socket.io.min.js"></script>
+    <style>
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                align-items: center !important;
+                text-align: center;
+                gap: 1.5rem;
+            }
+            .header-actions {
+                width: 100%;
+                justify-content: center;
+            }
+            .nav-tabs {
+                display: none !important;
+            }
+            .nav-mobile {
+                display: block !important;
+                width: 100%;
+                margin-top: 1rem;
+                position: relative;
+            }
+            .nav-custom-dropdown {
+                width: 100%;
+                background: rgba(255,255,255,0.08);
+                border: 1px solid rgba(255,255,255,0.15);
+                border-radius: 14px;
+                color: white;
+                padding: 0.9rem 1.3rem;
+                font-size: 1rem;
+                font-weight: 600;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+            .nav-custom-dropdown:active {
+                transform: scale(0.98);
+                background: rgba(255,255,255,0.12);
+            }
+            .nav-dropdown-items {
+                display: none;
+                position: absolute;
+                top: calc(100% + 8px);
+                left: 0;
+                width: 100%;
+                background: rgba(15, 23, 42, 0.95);
+                backdrop-filter: blur(15px);
+                border: 1px solid rgba(255,255,255,0.15);
+                border-radius: 14px;
+                z-index: 9999;
+                overflow: hidden;
+                box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            }
+            .nav-dropdown-items.show {
+                display: block;
+                animation: slideUp 0.3s ease;
+            }
+            .nav-item {
+                padding: 1.1rem 1.4rem;
+                color: rgba(255,255,255,0.8);
+                text-decoration: none;
+                display: block;
+                border-bottom: 1px solid rgba(255,255,255,0.05);
+                transition: all 0.2s;
+            }
+            .nav-item:last-child { border-bottom: none; }
+            .nav-item:active { background: rgba(255,255,255,0.1); }
+            .nav-item.active {
+                background: linear-gradient(135deg, rgba(96, 165, 250, 0.2), rgba(16, 185, 129, 0.1));
+                color: white;
+                font-weight: 700;
+            }
+
+            @keyframes slideUp {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        }
+        .nav-mobile { display: none; }
+    </style>
 </head>
 
 <body>
@@ -312,10 +393,25 @@
             <div>
                 <h1>BME280 Sensores</h1>
                 <p style="color: var(--text-muted)">Monitoreo Clima en tiempo real</p>
-                <div class="nav-tabs" style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                    <button class="btn-filter active">BME280 (Clima)</button>
-                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/battery.html'">Batería</button>
-                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/solar.html'">Solar</button>
+                <div class="nav-tabs" style="margin-top: 1rem; display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch;">
+                    <button class="btn-filter active" style="white-space: nowrap;">BME280 (Clima)</button>
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;" onclick="window.location.href='/battery.html'">Batería</button>
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;" onclick="window.location.href='/solar.html'">Solar</button>
+                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;" onclick="window.location.href='/inverter'">Inversor</button>
+                </div>
+
+                <!-- Menú móvil personalizado -->
+                <div class="nav-mobile">
+                    <div class="nav-custom-dropdown" onclick="toggleMobileNav()">
+                        <span>Sección: Clima</span>
+                        <i data-lucide="chevron-down" id="nav-chevron"></i>
+                    </div>
+                    <div class="nav-dropdown-items" id="mobile-nav-items">
+                        <a href="/" class="nav-item active">Monitor: Clima</a>
+                        <a href="/battery.html" class="nav-item">Monitor: Batería</a>
+                        <a href="/solar.html" class="nav-item">Monitor: Solar</a>
+                        <a href="/inverter" class="nav-item">Monitor: Inversor</a>
+                    </div>
                 </div>
             </div>
             <div class="header-actions" style="display: flex; align-items: center; gap: 1rem;">
@@ -410,6 +506,21 @@
                 <div class="sub-stats">
                     <div class="stat-item">Min: <b id="dp-min">--</b></div>
                     <div class="stat-item">Max: <b id="dp-max">--</b></div>
+                </div>
+            </div>
+            <div class="card" id="inv-card" onclick="window.location.href='/inverter'" style="cursor:pointer">
+                <div class="card-label">
+                    <i data-lucide="zap" style="color: #fbbf24"></i> Inversor (PowMr)
+                </div>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="inv-out-w">--</span><span class="card-unit">W</span>
+                    </div>
+                    <span id="inv-status-badge" class="trend-badge" style="background:rgba(16, 185, 129, 0.1); color:#10b981; border:1px solid rgba(16, 185, 129, 0.2);">Offline</span>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item">AC-In: <b id="inv-ac-v">--</b>V</div>
+                    <div class="stat-item">Out: <b id="inv-out-v">--</b>V</div>
                 </div>
             </div>
         </div>
@@ -1200,6 +1311,26 @@
             }
         });
 
+        socket.on('newInverterReading', (data) => {
+            console.log('Inverter Update recibido:', data);
+            document.getElementById('inv-out-w').innerText = data.out_w;
+            document.getElementById('inv-ac-v').innerText = data.ac_v;
+            document.getElementById('inv-out-v').innerText = data.out_v;
+            
+            const badge = document.getElementById('inv-status-badge');
+            const diffMin = (Date.now() - new Date(data.created_at).getTime()) / 60000;
+            
+            if (diffMin < 2) {
+                badge.innerText = data.out_w > 0 ? 'Cargando' : 'Standby';
+                badge.style.background = 'rgba(16, 185, 129, 0.1)';
+                badge.style.color = '#10b981';
+            } else {
+                badge.innerText = 'Offline';
+                badge.style.background = 'rgba(239, 68, 68, 0.1)';
+                badge.style.color = '#ef4444';
+            }
+        });
+
         function setQuickRange(range, btn) {
             // Update UI buttons
             document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active'));
@@ -1377,6 +1508,24 @@
         }, 30000); // Cada 30 segundos verificar salud
         
         setInterval(updateLatestCards, 60000);
+        function toggleMobileNav() {
+            const menu = document.getElementById('mobile-nav-items');
+            const chev = document.getElementById('nav-chevron');
+            menu.classList.toggle('show');
+            chev.style.transform = menu.classList.contains('show') ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+
+        // Cerrar menú al hacer clic fuera
+        window.addEventListener('click', (e) => {
+            if (document.getElementById('mobile-nav-items') && !e.target.closest('.nav-mobile')) {
+                document.getElementById('mobile-nav-items').classList.remove('show');
+                const chev = document.getElementById('nav-chevron');
+                if (chev) chev.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        // Initialize Lucide icons for correctly injected elements
+        lucide.createIcons();
     </script>
 </body>
 </html>
