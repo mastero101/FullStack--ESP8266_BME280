@@ -4,22 +4,22 @@
   Incluye ElegantOTA para actualizaciones inalámbricas.
 */
 
-#include <WiFi.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
-#include <ElegantOTA.h>
-#include <HTTPClient.h>
-#include <ArduinoJson.h>
-#include <Wire.h>
+#include "config.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <ArduinoJson.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
-#include "config.h"
+#include <ElegantOTA.h>
+#include <HTTPClient.h>
+#include <WiFi.h>
+#include <Wire.h>
 
 // Configuración OLED
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
-#define OLED_RESET    -1
+#define OLED_RESET -1
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // Servidor Web para OTA
@@ -29,6 +29,7 @@ AsyncWebServer server(80);
 float battVolt = 0.0;
 float battSOC = 0.0;
 float solarVolt = 0.0;
+float solarWatts = 0.0;
 String lastDate = "--/--";
 String lastTime = "--:--";
 bool initialDataFetched = false;
@@ -46,15 +47,16 @@ void setup() {
   Serial.begin(115200);
 
   // Inicializar OLED
-  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
-    for(;;);
+    for (;;)
+      ;
   }
-  
+
   display.clearDisplay();
   display.setTextColor(WHITE);
   display.setTextSize(1);
-  display.setCursor(0,0);
+  display.setCursor(0, 0);
   display.println("SISTEMA DE MONITOREO");
   display.println("");
   display.println("Iniciando WiFi...");
@@ -63,7 +65,7 @@ void setup() {
   // Conectar WiFi
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  
+
   wifiStatus = "Conectando...";
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 20) {
@@ -73,10 +75,10 @@ void setup() {
     attempts++;
   }
 
-  if(WiFi.status() == WL_CONNECTED) {
+  if (WiFi.status() == WL_CONNECTED) {
     wifiStatus = "CONECTADO";
     Serial.println("\nWiFi Conectado!");
-    
+
     // Iniciar mDNS
     if (MDNS.begin("iot-display")) {
       Serial.println("mDNS iniciado: iot-display.local");
@@ -93,7 +95,7 @@ void setup() {
   ElegantOTA.begin(&server);
   server.begin();
   MDNS.addService("http", "tcp", 80);
-  
+
   fetchData();
 }
 
@@ -111,23 +113,25 @@ void fetchData() {
     wifiStatus = "CONECTADO";
     HTTPClient http;
     serverStatus = "Cargando...";
-    
+
     // 1. Obtener Batería
     http.begin(String(serverName) + "/battery/latest");
     int httpCode = http.GET();
-    
+
     if (httpCode == 200) {
       serverOnline = true;
       serverStatus = "ONLINE";
       StaticJsonDocument<512> doc;
       deserializeJson(doc, http.getString());
       battVolt = doc["voltage"] | 0.0;
-      
-      battSOC = ((battVolt - eVolt) / (fVolt - eVolt)) * 100.0;
-      if (battSOC > 100.0) battSOC = 100.0;
-      if (battSOC < 0.0) battSOC = 0.0;
 
-      String createdAt = doc["created_at"]; 
+      battSOC = ((battVolt - eVolt) / (fVolt - eVolt)) * 100.0;
+      if (battSOC > 100.0)
+        battSOC = 100.0;
+      if (battSOC < 0.0)
+        battSOC = 0.0;
+
+      String createdAt = doc["created_at"];
       if (createdAt.length() > 16) {
         int year = createdAt.substring(0, 4).toInt();
         int month = createdAt.substring(5, 7).toInt();
@@ -137,18 +141,24 @@ void fetchData() {
 
         // Aplicar Offset de Tiempo
         hour += timeOffset;
-        if (hour < 0) { hour += 24; day--; }
-        if (hour >= 24) { hour -= 24; day++; }
+        if (hour < 0) {
+          hour += 24;
+          day--;
+        }
+        if (hour >= 24) {
+          hour -= 24;
+          day++;
+        }
 
         char dateBuf[12];
         char timeBuf[12];
         sprintf(dateBuf, "%02d/%02d", day, month);
         sprintf(timeBuf, "%02d:%02d", hour, minute);
-        
+
         lastDate = String(dateBuf);
         lastTime = String(timeBuf);
       }
-      
+
       if (!initialDataFetched) {
         initialDataFetched = true;
         ipScreenStartTime = millis(); // Empezar contador de 10s al primer éxito
@@ -159,13 +169,23 @@ void fetchData() {
     }
     http.end();
 
-    // 2. Obtener Solar
+    // 2. Obtener Solar e Inversor
     if (serverOnline) {
       http.begin(String(serverName) + "/solar/latest");
       http.GET();
       StaticJsonDocument<512> doc;
       deserializeJson(doc, http.getString());
       solarVolt = doc["voltage"] | 0.0;
+      http.end();
+
+      // Obtener Inversor para Amperaje (pv_c)
+      http.begin(String(serverName) + "/inverter/latest");
+      if (http.GET() == 200) {
+        StaticJsonDocument<512> docInv;
+        deserializeJson(docInv, http.getString());
+        float pvAmps = docInv["pv_c"] | 0.0;
+        solarWatts = solarVolt * pvAmps;
+      }
       http.end();
     }
   } else {
@@ -180,33 +200,37 @@ void updateDisplay() {
 
   // MODO 1: CONECTANDO / MOSTRAR IP AL INICIO
   // Se muestra hasta que se descarguen datos Y pasen 10 segundos
-  if (!initialDataFetched || (millis() - ipScreenStartTime < ipScreenDuration)) {
+  if (!initialDataFetched ||
+      (millis() - ipScreenStartTime < ipScreenDuration)) {
     display.setTextSize(1);
     display.setCursor(0, 0);
     display.println("SISTEMA INICIADO");
     display.drawFastHLine(0, 10, 128, WHITE);
-    
+
     display.setCursor(0, 15);
-    display.print("WiFi: "); display.println(wifiStatus);
-    
+    display.print("WiFi: ");
+    display.println(wifiStatus);
+
     if (WiFi.status() == WL_CONNECTED) {
       display.setCursor(0, 25);
-      display.print("IP:   "); display.println(WiFi.localIP().toString());
+      display.print("IP:   ");
+      display.println(WiFi.localIP().toString());
       display.setCursor(0, 35);
       display.print("Host: iot-display.local");
-      
+
       display.setCursor(0, 48);
       if (!initialDataFetched) {
         display.println("Conectando Servidor...");
       } else {
         display.println("¡TODO ONLINE!");
         display.setCursor(0, 56);
-        display.print("Iniciando en: "); 
-        display.print((ipScreenDuration - (millis() - ipScreenStartTime)) / 1000);
+        display.print("Iniciando en: ");
+        display.print((ipScreenDuration - (millis() - ipScreenStartTime)) /
+                      1000);
         display.print(" seg");
       }
     }
-  } 
+  }
   // MODO 2: DASHBOARD DE DATOS (VBAT, SOC, VSOL, FECHA)
   else {
     // BLOQUE 1: BATERIA (V y %)
@@ -218,31 +242,35 @@ void updateDisplay() {
 
     display.setTextSize(2);
     display.setCursor(0, 10);
-    display.print(battVolt, 1); 
+    display.print(battVolt, 1);
     display.setCursor(display.getCursorX() + 8, 10);
     display.print("V");
     display.setCursor(80, 10);
-    display.print((int)battSOC); display.print("%");
+    display.print((int)battSOC);
+    display.print("%");
 
     display.drawFastHLine(0, 28, 128, WHITE);
 
     // BLOQUE 2: SOLAR
     display.setTextSize(1);
     display.setCursor(0, 34);
-    display.print("PANELES SOLAR:");
+    display.print("SOLAR:");
     display.setTextSize(2);
     display.setCursor(0, 45);
-    display.print(solarVolt, 1); 
+    display.print(solarVolt, 1);
     display.setCursor(display.getCursorX() + 8, 45);
     display.print("V");
 
-    // BLOQUE 3: FECHA Y HORA (Pie de pantalla)
+    // BLOQUE 3: WATTS DE GENERACION Y HORA
     display.setTextSize(1);
-    display.setCursor(80, 45);
-    display.print(lastDate);
-    display.setCursor(80, 56);
+    display.setCursor(90, 34);
     display.print(lastTime);
-    
+    display.setTextSize(2);
+    display.setCursor(80, 45);
+    display.print((int)solarWatts);
+    display.setCursor(display.getCursorX() + 4, 45);
+    display.print("W");
+
     if (!serverOnline) {
       display.setCursor(0, 56);
       display.print("OFFLINE!");

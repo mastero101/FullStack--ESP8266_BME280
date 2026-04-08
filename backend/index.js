@@ -21,6 +21,11 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
+// Configurations API
+app.get('/api/config/bms-pin', (req, res) => {
+    res.json({ pin: process.env.BMS_PIN || "000000" });
+});
+
 // Initialize Database
 db.initDb();
 
@@ -776,6 +781,106 @@ app.get('/api/inverter/latest', async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM inverter_readings ORDER BY created_at DESC LIMIT 1');
         res.json(result.rows[0] || {});
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Database error" });
+    }
+});
+
+// GET statistics (Inverter)
+app.get('/api/inverter/stats', async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+
+        const globalStatsQuery = `
+            SELECT 
+                COUNT(*) as count,
+                MIN(pv_w) as min_pv, MAX(pv_w) as max_pv, AVG(pv_w) as avg_pv,
+                MIN(out_w) as min_out, MAX(out_w) as max_out, AVG(out_w) as avg_out,
+                MIN(ac_v) as min_ac_v, MAX(ac_v) as max_ac_v, AVG(ac_v) as avg_ac_v,
+                MIN(batt_v) as min_batt_v, MAX(batt_v) as max_batt_v, AVG(batt_v) as avg_batt_v,
+                (AVG(pv_w) * (EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) / 3600)) as pv_wh,
+                (AVG(out_w) * (EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) / 3600)) as out_wh
+            FROM inverter_readings
+        `;
+
+        const last24hStatsQuery = `
+            SELECT 
+                COUNT(*) as count,
+                MIN(pv_w) as min_pv, MAX(pv_w) as max_pv, AVG(pv_w) as avg_pv,
+                MIN(pv_v) as min_pv_v, MAX(pv_v) as max_pv_v, AVG(pv_v) as avg_pv_v,
+                MIN(out_w) as min_out, MAX(out_w) as max_out, AVG(out_w) as avg_out,
+                MIN(ac_v) as min_ac_v, MAX(ac_v) as max_ac_v, AVG(ac_v) as avg_ac_v,
+                MIN(batt_v) as min_batt_v, MAX(batt_v) as max_batt_v, AVG(batt_v) as avg_batt_v,
+                (AVG(pv_w) * (EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) / 3600)) as pv_wh,
+                (AVG(out_w) * (EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) / 3600)) as out_wh
+            FROM inverter_readings
+            WHERE created_at >= NOW() - INTERVAL '24 hours'
+        `;
+
+        const last7dStatsQuery = `
+            SELECT 
+                COUNT(*) as count,
+                MIN(pv_w) as min_pv, MAX(pv_w) as max_pv, AVG(pv_w) as avg_pv,
+                MIN(pv_v) as min_pv_v, MAX(pv_v) as max_pv_v, AVG(pv_v) as avg_pv_v,
+                MIN(out_w) as min_out, MAX(out_w) as max_out, AVG(out_w) as avg_out,
+                MIN(ac_v) as min_ac_v, MAX(ac_v) as max_ac_v, AVG(ac_v) as avg_ac_v,
+                MIN(batt_v) as min_batt_v, MAX(batt_v) as max_batt_v, AVG(batt_v) as avg_batt_v,
+                (AVG(pv_w) * (EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) / 3600)) as pv_wh,
+                (AVG(out_w) * (EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) / 3600)) as out_wh
+            FROM inverter_readings
+            WHERE created_at >= NOW() - INTERVAL '7 days'
+        `;
+
+        const last30dStatsQuery = `
+            SELECT 
+                COUNT(*) as count,
+                MIN(pv_w) as min_pv, MAX(pv_w) as max_pv, AVG(pv_w) as avg_pv,
+                MIN(out_w) as min_out, MAX(out_w) as max_out, AVG(out_w) as avg_out,
+                MIN(ac_v) as min_ac_v, MAX(ac_v) as max_ac_v, AVG(ac_v) as avg_ac_v,
+                MIN(batt_v) as min_batt_v, MAX(batt_v) as max_batt_v, AVG(batt_v) as avg_batt_v,
+                (AVG(pv_w) * (EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) / 3600)) as pv_wh,
+                (AVG(out_w) * (EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) / 3600)) as out_wh
+            FROM inverter_readings
+            WHERE created_at >= NOW() - INTERVAL '30 days'
+        `;
+
+        let rangeStatsQuery = null;
+        let rangeParams = [];
+        if (startDate && endDate) {
+            rangeStatsQuery = `
+                SELECT 
+                    COUNT(*) as count,
+                    MIN(pv_w) as min_pv, MAX(pv_w) as max_pv, AVG(pv_w) as avg_pv,
+                    MIN(pv_v) as min_pv_v, MAX(pv_v) as max_pv_v, AVG(pv_v) as avg_pv_v,
+                    MIN(out_w) as min_out, MAX(out_w) as max_out, AVG(out_w) as avg_out,
+                    MIN(ac_v) as min_ac_v, MAX(ac_v) as max_ac_v, AVG(ac_v) as avg_ac_v,
+                    MIN(batt_v) as min_batt_v, MAX(batt_v) as max_batt_v, AVG(batt_v) as avg_batt_v,
+                    (AVG(pv_w) * (EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) / 3600)) as pv_wh,
+                    (AVG(out_w) * (EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) / 3600)) as out_wh
+                FROM inverter_readings
+                WHERE created_at BETWEEN $1 AND $2
+            `;
+            rangeParams = [new Date(startDate), new Date(endDate)];
+        }
+
+        const queries = [
+            db.query(globalStatsQuery),
+            db.query(last24hStatsQuery),
+            db.query(last7dStatsQuery),
+            db.query(last30dStatsQuery)
+        ];
+        if (rangeStatsQuery) queries.push(db.query(rangeStatsQuery, rangeParams));
+
+        const results = await Promise.all(queries);
+
+        res.json({
+            global: results[0].rows[0],
+            last24h: results[1].rows[0],
+            last7d: results[2].rows[0],
+            last30d: results[3].rows[0],
+            range: rangeStatsQuery ? results[4].rows[0] : null
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Database error" });

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inversor PowMr - MasterOS</title>
+    <title>Inversor PowMr - HomeOS</title>
     <link rel="stylesheet" href="style.css">
     <script src="lib/chart.min.js"></script>
     <script src="lib/lucide.min.js"></script>
@@ -117,11 +117,221 @@
     </style>
 </head>
 <body class="dark-theme">
+    <!-- Modal de Estadísticas Inversor -->
+    <div id="stats-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Cálculos y Estadísticas</h2>
+                <button class="btn-icon" onclick="toggleStats()" style="padding: 0.4rem;"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="stats-tabs">
+                    <button class="tab-btn active" data-tab="24h" onclick="switchStatsTab('24h')">24h</button>
+                    <button class="tab-btn" data-tab="7d" onclick="switchStatsTab('7d')">7d</button>
+                    <button class="tab-btn" data-tab="30d" onclick="switchStatsTab('30d')">30d</button>
+                    <button class="tab-btn" data-tab="global" onclick="switchStatsTab('global')">Global</button>
+                    <button class="tab-btn" data-tab="range" onclick="switchStatsTab('range')">Rango</button>
+                </div>
+                
+                <div id="stats-content-24h" class="stats-grid">
+                    <div class="stat-box">
+                        <label>Generación Solar (PV)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-24h-min-pv">-- W</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-24h-max-pv">-- W</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-24h-avg-pv">-- W</b></div>
+                        <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;"><span>Energía Generada:</span> <b id="stat-24h-pv-wh" style="color: var(--warning);">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Voltaje Solar (PV)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-24h-min-pv-v">-- V</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-24h-max-pv-v">-- V</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-24h-avg-pv-v">-- V</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Consumo Salida (Load)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-24h-min-out">-- W</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-24h-max-out">-- W</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-24h-avg-out">-- W</b></div>
+                        <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;"><span>Energía Consumida:</span> <b id="stat-24h-out-wh" style="color: var(--secondary);">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Voltaje Red (AC In)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-24h-min-ac-v">-- V</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-24h-max-ac-v">-- V</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-24h-avg-ac-v">-- V</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Batería</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-24h-min-batt-v">-- V</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-24h-max-batt-v">-- V</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-24h-avg-batt-v">-- V</b></div>
+                    </div>
+                </div>
+
+                <div id="stats-content-7d" class="stats-grid" style="display: none;">
+                    <div class="stat-box">
+                        <label>Generación Solar (PV)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-7d-min-pv">-- W</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-7d-max-pv">-- W</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-7d-avg-pv">-- W</b></div>
+                        <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;"><span>Energía Generada:</span> <b id="stat-7d-pv-wh" style="color: var(--warning);">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Voltaje Solar (PV)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-7d-min-pv-v">-- V</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-7d-max-pv-v">-- V</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-7d-avg-pv-v">-- V</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Consumo Salida (Load)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-7d-min-out">-- W</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-7d-max-out">-- W</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-7d-avg-out">-- W</b></div>
+                        <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;"><span>Energía Consumida:</span> <b id="stat-7d-out-wh" style="color: var(--secondary);">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Voltaje Red (AC In)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-7d-min-ac-v">-- V</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-7d-max-ac-v">-- V</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-7d-avg-ac-v">-- V</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Batería</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-7d-min-batt-v">-- V</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-7d-max-batt-v">-- V</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-7d-avg-batt-v">-- V</b></div>
+                    </div>
+                </div>
+
+                <div id="stats-content-30d" class="stats-grid" style="display: none;">
+                    <div class="stat-box">
+                        <label>Generación Solar (PV)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-30d-min-pv">-- W</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-30d-max-pv">-- W</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-30d-avg-pv">-- W</b></div>
+                        <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;"><span>Energía Generada:</span> <b id="stat-30d-pv-wh" style="color: var(--warning);">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Voltaje Solar (PV)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-30d-min-pv-v">-- V</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-30d-max-pv-v">-- V</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-30d-avg-pv-v">-- V</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Consumo Salida (Load)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-30d-min-out">-- W</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-30d-max-out">-- W</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-30d-avg-out">-- W</b></div>
+                        <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;"><span>Energía Consumida:</span> <b id="stat-30d-out-wh" style="color: var(--secondary);">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Voltaje Red (AC In)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-30d-min-ac-v">-- V</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-30d-max-ac-v">-- V</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-30d-avg-ac-v">-- V</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Batería</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-30d-min-batt-v">-- V</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-30d-max-batt-v">-- V</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-30d-avg-batt-v">-- V</b></div>
+                    </div>
+                </div>
+
+                <div id="stats-content-global" class="stats-grid" style="display: none;">
+                    <div class="stat-box">
+                        <label>Generación Solar (PV)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-global-min-pv">-- W</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-global-max-pv">-- W</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-global-avg-pv">-- W</b></div>
+                        <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;"><span>Energía Generada:</span> <b id="stat-global-pv-wh" style="color: var(--warning);">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Voltaje Solar (PV)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-global-min-pv-v">-- V</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-global-max-pv-v">-- V</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-global-avg-pv-v">-- V</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Consumo Salida (Load)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-global-min-out">-- W</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-global-max-out">-- W</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-global-avg-out">-- W</b></div>
+                        <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;"><span>Energía Consumida:</span> <b id="stat-global-out-wh" style="color: var(--secondary);">--</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Voltaje Red (AC In)</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-global-min-ac-v">-- V</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-global-max-ac-v">-- V</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-global-avg-ac-v">-- V</b></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Batería</label>
+                        <div class="stat-row"><span>Mínimo:</span> <b id="stat-global-min-batt-v">-- V</b></div>
+                        <div class="stat-row"><span>Máximo:</span> <b id="stat-global-max-batt-v">-- V</b></div>
+                        <div class="stat-row"><span>Promedio:</span> <b id="stat-global-avg-batt-v">-- V</b></div>
+                    </div>
+                </div>
+
+                <div id="stats-content-range" class="stats-container" style="display: none;">
+                    <div class="stats-range-picker" style="display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 2rem;">
+                        <div style="flex: 1;">
+                            <label style="display: block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">Inicio</label>
+                            <input type="date" id="stats-start-date" class="stats-input" style="width: 100%; padding: 0.6rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: #fff;" onchange="document.getElementById('stats-end-date').min = this.value">
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="display: block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">Fin</label>
+                            <input type="date" id="stats-end-date" class="stats-input" style="width: 100%; padding: 0.6rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: #fff;">
+                        </div>
+                        <button class="btn-filter" onclick="updateStatsData(true)" style="padding: 0.6rem 1rem; background: var(--primary);">
+                            <i data-lucide="play" style="width: 16px; height: 16px;"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <label>Generación Solar (PV)</label>
+                            <div class="stat-row"><span>Mínimo:</span> <b id="stat-range-min-pv">-- W</b></div>
+                            <div class="stat-row"><span>Máximo:</span> <b id="stat-range-max-pv">-- W</b></div>
+                            <div class="stat-row"><span>Promedio:</span> <b id="stat-range-avg-pv">-- W</b></div>
+                            <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;"><span>Energía Generada:</span> <b id="stat-range-pv-wh" style="color: var(--warning);">--</b></div>
+                        </div>
+                        <div class="stat-box">
+                            <label>Voltaje Solar (PV)</label>
+                            <div class="stat-row"><span>Mínimo:</span> <b id="stat-range-min-pv-v">-- V</b></div>
+                            <div class="stat-row"><span>Máximo:</span> <b id="stat-range-max-pv-v">-- V</b></div>
+                            <div class="stat-row"><span>Promedio:</span> <b id="stat-range-avg-pv-v">-- V</b></div>
+                        </div>
+                        <div class="stat-box">
+                            <label>Consumo Salida (Load)</label>
+                            <div class="stat-row"><span>Mínimo:</span> <b id="stat-range-min-out">-- W</b></div>
+                            <div class="stat-row"><span>Máximo:</span> <b id="stat-range-max-out">-- W</b></div>
+                            <div class="stat-row"><span>Promedio:</span> <b id="stat-range-avg-out">-- W</b></div>
+                            <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem;"><span>Energía Consumida:</span> <b id="stat-range-out-wh" style="color: var(--secondary);">--</b></div>
+                        </div>
+                        <div class="stat-box">
+                            <label>Voltaje Red (AC In)</label>
+                            <div class="stat-row"><span>Mínimo:</span> <b id="stat-range-min-ac-v">-- V</b></div>
+                            <div class="stat-row"><span>Máximo:</span> <b id="stat-range-max-ac-v">-- V</b></div>
+                            <div class="stat-row"><span>Promedio:</span> <b id="stat-range-avg-ac-v">-- V</b></div>
+                        </div>
+                        <div class="stat-box">
+                            <label>Batería</label>
+                            <div class="stat-row"><span>Mínimo:</span> <b id="stat-range-min-batt-v">-- V</b></div>
+                            <div class="stat-row"><span>Máximo:</span> <b id="stat-range-max-batt-v">-- V</b></div>
+                            <div class="stat-row"><span>Promedio:</span> <b id="stat-range-avg-batt-v">-- V</b></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <div>
                 <h1>Monitor de Inversor PowMr</h1>
-                <p style="color: var(--text-muted)">Híbrido 3KVA - 110V | Sincronización Real</p>
+                <p style="color: var(--text-muted)">Híbrido 3KVA - 110V | Sincronización</p>
                 <div class="nav-tabs" style="margin-top: 1rem; display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch;">
                     <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;" onclick="window.location.href='/'">Clima</button>
                     <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;" onclick="window.location.href='/battery.html'">Batería</button>
@@ -151,6 +361,9 @@
                     </div>
                     <span id="last-seen" style="font-size: 0.65rem; color: var(--text-muted); margin-left: 1.1rem;">Visto: --</span>
                 </div>
+                <button class="btn-icon" onclick="toggleStats()" title="Estadísticas">
+                    <i data-lucide="bar-chart-2"></i>
+                </button>
                 <button class="btn-icon" onclick="toggleSettings()" title="Ajustes">
                     <i data-lucide="settings"></i>
                 </button>
@@ -539,6 +752,90 @@
             const chev = document.getElementById('nav-chevron');
             menu.classList.toggle('show');
             chev.style.transform = menu.classList.contains('show') ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+
+        function toggleStats() {
+            const modal = document.getElementById('stats-modal');
+            if (modal.style.display === 'flex') {
+                modal.style.display = 'none';
+            } else {
+                modal.style.display = 'flex';
+                updateStatsData();
+            }
+        }
+
+        function switchStatsTab(tab) {
+            const tabs = document.querySelectorAll('.tab-btn');
+            tabs.forEach(t => t.classList.remove('active'));
+            ['24h', '7d', '30d', 'global', 'range'].forEach(id => {
+                const el = document.getElementById(`stats-content-${id}`);
+                if (el) el.style.display = 'none';
+            });
+            
+            if (tab === '24h') tabs[0].classList.add('active');
+            else if (tab === '7d') tabs[1].classList.add('active');
+            else if (tab === '30d') tabs[2].classList.add('active');
+            else if (tab === 'global') tabs[3].classList.add('active');
+            else tabs[4].classList.add('active');
+            
+            const cont = document.getElementById(`stats-content-${tab}`);
+            if (cont) cont.style.display = tab === 'range' ? 'block' : 'grid';
+        }
+
+        async function updateStatsData(isCustomRange = false) {
+            try {
+                let url = '/api/inverter/stats';
+                if (isCustomRange) {
+                    const start = document.getElementById('stats-start-date').value;
+                    const end = document.getElementById('stats-end-date').value;
+                    if (start && end) {
+                        url += `?startDate=${start}&endDate=${end}T23:59:59`;
+                    }
+                }
+
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                const updateBox = (prefix, stats) => {
+                    if (!stats) return;
+                    const fields = ['min-pv', 'max-pv', 'avg-pv', 'min-out', 'max-out', 'avg-out'];
+                    fields.forEach(field => {
+                        const el = document.getElementById(`stat-${prefix}-${field}`);
+                        if (el && stats[field.replaceAll('-', '_')] !== null) {
+                            el.innerText = `${Number(stats[field.replaceAll('-', '_')]).toFixed(1)} W`;
+                        } else if (el) el.innerText = '-- W';
+                    });
+                    
+                    const volts = ['min-ac-v', 'max-ac-v', 'avg-ac-v', 'min-batt-v', 'max-batt-v', 'avg-batt-v', 'min-pv-v', 'max-pv-v', 'avg-pv-v'];
+                    volts.forEach(field => {
+                        const el = document.getElementById(`stat-${prefix}-${field}`);
+                        if (el && stats[field.replaceAll('-', '_')] !== null && stats[field.replaceAll('-', '_')] !== undefined) {
+                            el.innerText = `${Number(stats[field.replaceAll('-', '_')]).toFixed(2)} V`;
+                        } else if (el) el.innerText = '-- V';
+                    });
+                    
+                    const energyFields = ['pv-wh', 'out-wh'];
+                    energyFields.forEach(field => {
+                        const el = document.getElementById(`stat-${prefix}-${field}`);
+                        if (el && stats[field.replaceAll('-', '_')] !== null && stats[field.replaceAll('-', '_')] !== undefined) {
+                            const val = Number(stats[field.replaceAll('-', '_')]);
+                            el.innerText = val > 1000 ? `${(val / 1000).toFixed(2)} kWh` : `${val.toFixed(1)} Wh`;
+                        } else if (el) el.innerText = '-- Wh';
+                    });
+                };
+                
+                updateBox('24h', data.last24h);
+                updateBox('7d', data.last7d);
+                updateBox('30d', data.last30d);
+                updateBox('global', data.global);
+                
+                if (data.range) {
+                    updateBox('range', data.range);
+                }
+                lucide.createIcons();
+            } catch (e) {
+                console.error("Error fetching stats:", e);
+            }
         }
 
         // Cerrar menú al hacer clic fuera

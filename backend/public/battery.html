@@ -103,6 +103,50 @@
             from { transform: translateX(0); opacity: 1; }
             to { transform: translateX(100%); opacity: 0; }
         }
+
+        /* Keypad Styles */
+        .keypad-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .keypad-btn:active {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(0.95);
+        }
+        .pin-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.2s;
+        }
+        .pin-dot.filled {
+            background: #fff;
+            border-color: #fff;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+        .pin-dot.error {
+            border-color: #f43f5e;
+            background: #f43f5e;
+            box-shadow: 0 0 8px rgba(244, 63, 94, 0.5);
+            animation: shake 0.3s;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
     </style>
     <link rel="stylesheet" href="style.css">
     <script src="lib/chart.min.js"></script>
@@ -610,19 +654,43 @@
         </div>
     </div>
 
-    <!-- Modal de Confirmación MOS -->
-    <div id="confirm-modal" class="modal" style="display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.85);">
-        <div class="modal-content" style="max-width: 400px; text-align: center; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+    <!-- Modal de PIN MOS -->
+    <div id="pin-modal" class="modal" style="display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.85);">
+        <div class="modal-content" style="max-width: 320px; text-align: center; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
             <div class="modal-header" style="justify-content: center; border: none; padding-bottom: 0;">
                 <div style="background: rgba(245, 158, 11, 0.1); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
-                    <i data-lucide="alert-triangle" style="color: #f59e0b; width: 32px; height: 32px;"></i>
+                    <i data-lucide="lock" style="color: #f59e0b; width: 32px; height: 32px;"></i>
                 </div>
             </div>
-            <h2 id="confirm-title" style="margin-bottom: 1rem; color: #fff; font-size: 1.4rem;">¿Confirmar Acción?</h2>
-            <p id="confirm-msg" style="color: var(--text-muted); margin-bottom: 2rem; line-height: 1.5;">Esta acción cambiará el estado de los MOSFETs en el BMS. ¿Estás seguro de continuar?</p>
+            <h2 id="pin-title" style="margin-bottom: 0.5rem; color: #fff; font-size: 1.2rem;">PIN Requerido</h2>
+            <p id="pin-msg" style="color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.4; font-size: 0.9rem;">Ingrese PIN para cambiar estado del MOS</p>
+            
+            <div style="display: flex; justify-content: center; gap: 0.8rem; margin-bottom: 1.5rem;" id="pin-dots">
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+            </div>
+
+            <div class="keypad" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.5rem;">
+                <button class="keypad-btn" onclick="addPinDigit(1)">1</button>
+                <button class="keypad-btn" onclick="addPinDigit(2)">2</button>
+                <button class="keypad-btn" onclick="addPinDigit(3)">3</button>
+                <button class="keypad-btn" onclick="addPinDigit(4)">4</button>
+                <button class="keypad-btn" onclick="addPinDigit(5)">5</button>
+                <button class="keypad-btn" onclick="addPinDigit(6)">6</button>
+                <button class="keypad-btn" onclick="addPinDigit(7)">7</button>
+                <button class="keypad-btn" onclick="addPinDigit(8)">8</button>
+                <button class="keypad-btn" onclick="addPinDigit(9)">9</button>
+                <button class="keypad-btn" onclick="clearPin()" style="color: #f43f5e; font-size: 1.1rem; font-weight: bold;">C</button>
+                <button class="keypad-btn" onclick="addPinDigit(0)">0</button>
+                <button class="keypad-btn" onclick="removePinDigit()" style="font-size: 1.1rem; font-weight: bold;">&larr;</button>
+            </div>
+
             <div style="display: flex; gap: 1rem; justify-content: center;">
-                <button id="confirm-cancel" class="btn-secondary" style="flex: 1; padding: 0.8rem; justify-content: center;">No, Cancelar</button>
-                <button id="confirm-ok" class="btn-filter" style="flex: 1; padding: 0.8rem; justify-content: center; background: #10b981;">Sí, Ejecutar</button>
+                <button id="pin-cancel" class="btn-secondary" style="flex: 1; padding: 0.8rem; justify-content: center;">Cancelar</button>
             </div>
         </div>
     </div>
@@ -1309,7 +1377,7 @@
                     fields.forEach(field => {
                         const el = document.getElementById(`stat-${prefix}-${field}`);
                         if (!el) return;
-                        const val = stats[field.replace('-', '_')];
+                        const val = stats[field.replaceAll('-', '_')];
                         if (val === null || val === undefined) return el.innerText = '--';
                         let unit = field.includes('volt') ? 'V' : (field.includes('curr') ? 'A' : 'W');
                         let finalVal = (unit === 'V') ? val : val / 1000.0;
@@ -1320,10 +1388,28 @@
                     const dischargedEl = document.getElementById(`stat-${prefix}-discharged`);
                     if (chargedEl && stats.charged_wh !== undefined) chargedEl.innerText = stats.charged_wh > 1000 ? (stats.charged_wh/1000).toFixed(2) + ' kWh' : stats.charged_wh.toFixed(1) + ' Wh';
                     if (dischargedEl && stats.discharged_wh !== undefined) dischargedEl.innerText = stats.discharged_wh > 1000 ? (stats.discharged_wh/1000).toFixed(2) + ' kWh' : stats.discharged_wh.toFixed(1) + ' Wh';
+
+                    const nomVolt = parseFloat(localStorage.getItem('battNominalVolt')) || 24.0;
+                    const capacityAh = parseFloat(localStorage.getItem('battCapacityAh')) || 100.0;
+                    const cyclesEl = document.getElementById(`stat-${prefix}-cycles`);
+                    const spentAhEl = document.getElementById(`stat-${prefix}-spent-ah`);
+                    
+                    if (stats.discharged_wh !== undefined) {
+                        const spentAh = stats.discharged_wh / nomVolt;
+                        if (spentAhEl) spentAhEl.innerText = spentAh.toFixed(1) + ' Ah';
+                        
+                        const totalWh = capacityAh * nomVolt;
+                        const cycles = stats.discharged_wh / totalWh;
+                        if (cyclesEl) cyclesEl.innerText = cycles.toFixed(3);
+                    }
                 };
 
                 updateBox('24h', data.last24h);
                 updateBox('global', data.global);
+                
+                if (data.range) {
+                    updateBox('range', data.range);
+                }
 
                 const activeTabEl = document.querySelector('.tab-btn.active');
                 const activeTab = activeTabEl ? activeTabEl.getAttribute('data-tab') : '24h';
@@ -1891,39 +1977,100 @@
             }, 4000);
         }
 
+        let currentPin = "";
+        let TARGET_PIN = "";
+        let pendingMosAction = null;
+
+        // Fetch PIN del Backend On Load
+        fetch('/api/config/bms-pin').then(r => r.json()).then(data => {
+            if (data.pin) TARGET_PIN = data.pin;
+        }).catch(e => console.error("Error al obtener PIN:", e));
+
+        function addPinDigit(digit) {
+            if (currentPin.length < 6) {
+                currentPin += digit;
+                updatePinDots();
+                if (currentPin.length === 6) {
+                    verifyPin();
+                }
+            }
+        }
+
+        function removePinDigit() {
+            if (currentPin.length > 0) {
+                currentPin = currentPin.slice(0, -1);
+                updatePinDots();
+            }
+        }
+
+        function clearPin() {
+            currentPin = "";
+            updatePinDots();
+        }
+
+        function updatePinDots() {
+            const dots = document.querySelectorAll('#pin-dots .pin-dot');
+            dots.forEach((dot, idx) => {
+                dot.classList.remove('error');
+                if (idx < currentPin.length) {
+                    dot.classList.add('filled');
+                } else {
+                    dot.classList.remove('filled');
+                }
+            });
+        }
+
+        function verifyPin() {
+            if (currentPin === TARGET_PIN) {
+                if (pendingMosAction) {
+                    toggleMos(pendingMosAction.type, pendingMosAction.state);
+                }
+                closePinModal();
+            } else {
+                const dots = document.querySelectorAll('#pin-dots .pin-dot');
+                dots.forEach(dot => dot.classList.add('error'));
+                setTimeout(() => {
+                    clearPin();
+                }, 500);
+            }
+        }
+
+        function closePinModal() {
+            document.getElementById('pin-modal').style.display = 'none';
+            if (pendingMosAction) {
+                if (currentPin !== TARGET_PIN) {
+                    // Revert checkbox state visually
+                    pendingMosAction.checkbox.checked = !pendingMosAction.checkbox.checked;
+                }
+                pendingMosAction = null;
+            }
+            clearPin();
+        }
+
         function confirmToggle(type, checkbox) {
-            const modal = document.getElementById('confirm-modal');
-            const okBtn = document.getElementById('confirm-ok');
-            const cancelBtn = document.getElementById('confirm-cancel');
-            const title = document.getElementById('confirm-title');
-            const msg = document.getElementById('confirm-msg');
+            const modal = document.getElementById('pin-modal');
+            const cancelBtn = document.getElementById('pin-cancel');
+            const title = document.getElementById('pin-title');
             
             const action = checkbox.checked ? "HABILITAR" : "DESHABILITAR";
             const mosName = type === 'charge' ? "CARGA" : "DESCARGA";
             
-            title.innerText = `¿${action} MOS ${mosName}?`;
-            msg.innerText = `Estás a punto de ${action.toLowerCase()} el canal de ${mosName.toLowerCase()}. ¿Estás seguro de que deseas continuar con esta operación?`;
+            title.innerText = `${action} MOS ${mosName}`;
             
+            pendingMosAction = {
+                type: type,
+                state: checkbox.checked,
+                checkbox: checkbox
+            };
+            
+            clearPin();
             modal.style.display = 'flex';
             
             const handleCancel = () => {
-                checkbox.checked = !checkbox.checked; // Revertir visualmente
-                modal.style.display = 'none';
-                cleanup();
-            };
-            
-            const handleOk = () => {
-                toggleMos(type, checkbox.checked);
-                modal.style.display = 'none';
-                cleanup();
-            };
-            
-            const cleanup = () => {
-                okBtn.removeEventListener('click', handleOk);
+                closePinModal();
                 cancelBtn.removeEventListener('click', handleCancel);
             };
             
-            okBtn.addEventListener('click', handleOk);
             cancelBtn.addEventListener('click', handleCancel);
         }
 
