@@ -1,6 +1,6 @@
-# 🌡️ IoT Dashboard - BME280 & ESP8266
+# 🌡️ MasterOS IoT Backend
 
-Sistema profesional de monitoreo ambiental en tiempo real. Este dashboard permite visualizar datos de temperatura, humedad y presión atmosférica provenientes de un sensor BME280 conectado a un ESP8266, con almacenamiento persistente en PostgreSQL y actualización instantánea vía WebSockets.
+Sistema backend profesional para monitoreo y telemática en tiempo real de componentes IoT, energéticos y climáticos. Proporciona una API escalable alojada en Express + PostgreSQL para gestionar sensores ambientales (BME280, AHT20, BMP280), monitores de baterías (INA226, Daly BMS), inversores solares y métricas fotovoltaicas (INA228), con actualización instantánea vía WebSockets.
 
 ## 🚀 Características Principales
 
@@ -40,14 +40,15 @@ Sistema profesional de monitoreo ambiental en tiempo real. Este dashboard permit
     ```
 
 3.  **Configurar Variables de Entorno:**
-    Crea un archivo `.env` en la raíz de la carpeta `backend/`:
+    En la raíz de la carpeta `backend/` verás un archivo llamado `.env.example`.
+    Haz una copia exacta del mismo y llámala `.env`. A continuación edita este archivo con las credenciales reales:
     ```env
-    PORT=5000
+    PORT=7755
     DB_USER=tu_usuario
-    DB_HOST=localhost
-    DB_DATABASE=iot_db
     DB_PASSWORD=tu_password
+    DB_HOST=127.0.0.1
     DB_PORT=5432
+    DB_NAME=tu_base_de_datos
     ```
 
 4.  **Inicializar Base de Datos:**
