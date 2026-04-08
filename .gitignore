@@ -5,8 +5,19 @@ yarn-debug.log*
 yarn-error.log*
 .env
 
-# Arduino/ESP8266
-firmware/config.h
+# Arduino/ESP8266/ESP32
+**/config.h
+*/config.h
+build/
+*.bin
+*.elf
+*.hex
+
+# Archives
+*.7z
+*.zip
+*.rar
+*.tar.gz
 
 # Database/Docker
 pgdata/

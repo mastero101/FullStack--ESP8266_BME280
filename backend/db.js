@@ -121,6 +121,13 @@ const initDb = async () => {
   `;
   try {
     await pool.query(queryText);
+    
+    // Migrations for existing tables
+    await pool.query("ALTER TABLE inverter_readings ADD COLUMN IF NOT EXISTS tx_count INT DEFAULT 0").catch(() => {});
+    await pool.query("ALTER TABLE inverter_readings ADD COLUMN IF NOT EXISTS rx_count INT DEFAULT 0").catch(() => {});
+    await pool.query("ALTER TABLE inverter_readings ADD COLUMN IF NOT EXISTS parse_errors INT DEFAULT 0").catch(() => {});
+    await pool.query("ALTER TABLE inverter_readings ADD COLUMN IF NOT EXISTS frames_ok INT DEFAULT 0").catch(() => {});
+
     console.log("Database table initialized");
   } catch (err) {
     console.error("Error initializing database", err);

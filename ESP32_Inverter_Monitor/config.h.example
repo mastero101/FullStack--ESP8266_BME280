@@ -1,0 +1,24 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// --- WiFi Settings ---
+const char* WIFI_SSID     = "YOUR_WIFI_SSID";
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+
+// --- ElegantOTA Settings ---
+const char* OTA_USER      = "admin";
+const char* OTA_PASS      = "admin123";
+
+// --- UART Settings (RS232 to MAX3232) ---
+#define INVERTER_BAUD     2400 
+#define RXD2              15   
+#define TXD2              13   
+
+// --- Polling Settings ---
+#define POLL_INTERVAL_MS  10000 
+#define SEND_INTERVAL_MS  60000 // Enviar a nube cada 1 min
+
+// --- Backend URL ---
+const char* serverName = "http://YOUR_SERVER_IP:7755/api/inverter";
+
+#endif
