@@ -1,4 +1,4 @@
-# MasterOS IoT Dashboard & Sensor Suite Documentation
+# Home IoT Dashboard & Sensor Suite Documentation
 
 ## Proyecto General
 
