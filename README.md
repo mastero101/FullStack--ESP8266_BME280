@@ -84,4 +84,6 @@ cloudflared tunnel --url http://127.0.0.1:7755
 Comparte e ingresa al enlace autogenerado `.trycloudflare.com`.
 
 ---
-*Si deseas entender más de la distribución arquitectónica puedes revisar el archivo `DOCUMENTATION.md`.*
+*Si deseas entender más de la distribución arquitectónica puedes revisar el archivo [DOCUMENTATION.md](./DOCUMENTATION.md)*.
+
+*Para replicar la circuitería y los diagramas de conexión, visita [WIRING.md](./WIRING.md)*.
