@@ -1,4 +1,4 @@
-# MasterOS IoT: FullStack Dashboard & Sensor Suite
+# Home IoT: FullStack Dashboard & Sensor Suite
 
 ![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
 ![Node](https://img.shields.io/badge/node->=16-brightgreen.svg)
