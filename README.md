@@ -4,7 +4,7 @@
 ![Node](https://img.shields.io/badge/node->=16-brightgreen.svg)
 ![Hardware](https://img.shields.io/badge/hardware-ESP8266%20%7C%20ESP32%20%7C%20Wemos-orange.svg)
 
-Este repositorio contiene la solución alojada unificada de MasterOS para el monitoreo integral de un ecosistema IoT avanzado. Se compone de un servidor central alojado localmente en Node.js, y un conjunto de programas o firmwares específicos (C++) diseñados para correr en diversos microcontroladores. 
+Este repositorio contiene la solución alojada unificada de HomeOS para el monitoreo integral de un ecosistema IoT avanzado. Se compone de un servidor central alojado localmente en Node.js, y un conjunto de programas o firmwares específicos (C++) diseñados para correr en diversos microcontroladores. 
 
 Con este ecosistema, es posible recopilar en tiempo real métricas de **ambiente, generación solar fotovoltaica, y rendimiento de componentes del inversor/baterías.**
 
