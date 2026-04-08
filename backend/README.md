@@ -1,4 +1,4 @@
-# 🌡️ MasterOS IoT Backend
+# 🌡️ Home IoT Backend
 
 Sistema backend profesional para monitoreo y telemática en tiempo real de componentes IoT, energéticos y climáticos. Proporciona una API escalable alojada en Express + PostgreSQL para gestionar sensores ambientales (BME280, AHT20, BMP280), monitores de baterías (INA226, Daly BMS), inversores solares y métricas fotovoltaicas (INA228), con actualización instantánea vía WebSockets.
 

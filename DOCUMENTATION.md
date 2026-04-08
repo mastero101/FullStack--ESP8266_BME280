@@ -1,8 +1,8 @@
-# MasterOS IoT Dashboard & Sensor Suite Documentation
+# Home IoT Dashboard & Sensor Suite Documentation
 
 ## Proyecto General
 
-Este repositorio aloja la solución completa de MasterOS para el monitoreo de un ecosistema IoT avanzado. Está dividido en un servidor backend escalable, una interfaz gráfica web responsiva con diseño premium, y múltiples firmwares para microcontroladores (ESP32/ESP8266) dedicados a sensores ambientales, energéticos y de control.
+Este repositorio aloja la solución completa de HomeOS para el monitoreo de un ecosistema IoT avanzado. Está dividido en un servidor backend escalable, una interfaz gráfica web responsiva con diseño premium, y múltiples firmwares para microcontroladores (ESP32/ESP8266) dedicados a sensores ambientales, energéticos y de control.
 
 ### Arquitectura de la Solución
 
