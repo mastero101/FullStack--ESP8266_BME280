@@ -13,7 +13,7 @@ Este proyecto ha sido simplificado para ejecutarse completamente desde el backen
 - **Node.js**: Instalado en tu máquina.
 
 ## Configuración del Backend
-1. Edita el archivo `backend/.env` con las credenciales de tu base de datos PostgreSQL local.
+1. Copia el archivo `backend/.env.example` a `backend/.env` y edítalo con las credenciales de tu base de datos PostgreSQL local.
 2. Inicia el servidor:
    ```bash
    cd backend
@@ -30,10 +30,10 @@ Este proyecto ha sido simplificado para ejecutarse completamente desde el backen
 4.  **firmware_ina226**: Monitor de batería.
 
 ### Configuración del Firmware
-1. Abre el archivo `.ino` correspondiente en Arduino IDE.
-2. Asegúrate de tener instaladas las librerías: `Adafruit BME280`, `Adafruit AHTX0`, `Adafruit BMP280`, `U8g2`, `ArduinoJson`, `NTPClient`.
-- `serverName` con la IP local de tu servidor Node.js.
-   - **Nota**: El BME280 usa `/api/readings`, el AHT20 usa `/api/environment`, y la Batería usa `/api/battery`.
+1. Copia el archivo `config.h.example` dentro de la carpeta del firmware que desees usar y renómbralo a `config.h`. 
+2. Modifica el nuevo archivo `config.h` con tu SSID, contraseña de WiFi, IP del servidor y demás detalles. *(Nota: Por seguridad, ningún archivo `config.h` ni `.env` se sube al repositorio de GitHub).*
+3. Abre el archivo `.ino` correspondiente en Arduino IDE.
+4. Asegúrate de tener instaladas las librerías necesarias: `Adafruit BME280`, `Adafruit AHTX0`, `Adafruit BMP280`, `U8g2`, `ArduinoJson`, `NTPClient`.
 
 ## Dashboard y Secciones
 

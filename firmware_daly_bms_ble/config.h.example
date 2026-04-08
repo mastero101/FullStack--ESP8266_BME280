@@ -1,0 +1,15 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// --- WiFi Configuration ---
+const char* ssid     = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+
+// --- API Configuration ---
+const char* api_url  = "http://YOUR_SERVER_IP:7755/bms";
+
+// --- Daly BMS Configuration ---
+const char* bms_mac  = "00:00:00:00:00:00";
+const unsigned long pollInterval = 60000; // 60 seconds
+
+#endif

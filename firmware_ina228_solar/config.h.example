@@ -1,0 +1,27 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// Backend Configuration
+const char* serverName = "http://YOUR_SERVER_IP:7755/api"; 
+
+// INA228 Calibration
+// Ajustar estos valores según tu hardware:
+// - maxCurrent: corriente máxima esperada en Amperes
+// - shuntResistor: valor de la resistencia shunt en Ohms
+const float maxCurrent = 10.0;       // 10A máximo esperado
+const float shuntResistor = 0.015;   // 15mΩ (valor típico, verificar en tu módulo)
+
+// Estructura para múltiples redes (Failover)
+struct WifiNetwork {
+  const char* ssid;
+  const char* password;
+};
+
+// Lista de redes - Agrega todas las que quieras
+const WifiNetwork networks[] = {
+  {"YOUR_WIFI_SSID_1", "YOUR_WIFI_PASSWORD_1"},
+  {"YOUR_WIFI_SSID_2", "YOUR_WIFI_PASSWORD_2"}
+};
+const int networkCount = sizeof(networks) / sizeof(networks[0]);
+
+#endif
