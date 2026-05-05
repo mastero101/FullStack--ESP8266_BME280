@@ -1,3 +1,4 @@
+#define ELEGANTOTA_USE_ASYNC_WEBSERVER 1
 #include <WiFi.h>
 #include <ArduinoJson.h>
 #include <NimBLEDevice.h>
@@ -164,11 +165,11 @@ void setup() {
   NimBLEDevice::setPower(ESP_PWR_LVL_P9);
 
   // --- Web Server Routes ---
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/", AsyncWebRequestMethod::HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send_P(200, "text/html", index_html);
   });
 
-  server.on("/api/data", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/api/data", AsyncWebRequestMethod::HTTP_GET, [](AsyncWebServerRequest *request) {
     StaticJsonDocument<512> doc;
     doc["voltage"] = bmsData.voltage;
     doc["current"] = bmsData.current;
@@ -190,7 +191,7 @@ void setup() {
     request->send(200, "application/json", response);
   });
 
-  server.on("/control", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/control", AsyncWebRequestMethod::HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("type") && request->hasParam("state")) {
       String type = request->getParam("type")->value();
       bool state = request->getParam("state")->value() == "1";
@@ -204,7 +205,7 @@ void setup() {
     }
   });
 
-  server.on("/restart", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/restart", AsyncWebRequestMethod::HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "text/plain", "Restarting...");
     delay(500);
     ESP.restart();
