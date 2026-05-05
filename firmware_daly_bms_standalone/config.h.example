@@ -1,0 +1,23 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+/**
+ * CONFIGURATION FILE - EXAMPLE
+ * Rename this file to config.h and fill in your details.
+ */
+
+// --- WiFi Configuration ---
+const char* ssid     = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+
+// --- Daly BMS Configuration ---
+// MAC Address of your Daly BMS Bluetooth module
+const char* bms_mac  = "00:00:00:00:00:00"; 
+
+// Hostname for mDNS (Access via http://dalybms.local)
+const char* hostname = "dalybms";
+
+// Time between data requests (milliseconds)
+const unsigned long pollInterval = 10000; 
+
+#endif
