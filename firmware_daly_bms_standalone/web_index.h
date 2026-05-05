@@ -7,373 +7,349 @@ const char index_html[] PROGMEM = R"rawliteral(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Daly BMS Monitor | Standalone</title>
+  <title>Daly BMS | BLE Bridge</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0f172a;
-      --card-bg: rgba(30, 41, 59, 0.7);
+      --bg: #030712;
+      --card-bg: #0f172a;
+      --border: rgba(255, 255, 255, 0.08);
       --primary: #38bdf8;
-      --secondary: #818cf8;
-      --accent: #f472b6;
-      --success: #4ade80;
-      --danger: #f87171;
+      --success: #10b981;
+      --warning: #fbbf24;
+      --danger: #ef4444;
       --text: #f8fafc;
       --text-dim: #94a3b8;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: 'Outfit', sans-serif;
       background-color: var(--bg);
-      background-image: 
-        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(129, 140, 248, 0.15) 0px, transparent 50%);
       color: var(--text);
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem 1rem;
+      padding: 1.5rem;
     }
 
-    .container {
-      width: 100%;
-      max-width: 900px;
-    }
-
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .header {
+      text-align: center;
       margin-bottom: 2rem;
-      width: 100%;
-    }
-
-    .logo {
-      font-size: 1.5rem;
-      font-weight: 800;
-      background: linear-gradient(to right, var(--primary), var(--secondary));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .status-badge {
-      padding: 0.5rem 1rem;
-      border-radius: 99px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      background: var(--card-bg);
-      border: 1px solid rgba(255, 255, 255, 0.1);
       display: flex;
+      justify-content: center;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.75rem;
+      color: var(--primary);
     }
 
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--danger);
-      box-shadow: 0 0 10px var(--danger);
-    }
+    .header h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; }
 
-    .status-dot.online {
-      background: var(--success);
-      box-shadow: 0 0 10px var(--success);
-    }
-
-    .grid {
+    .dashboard-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 1.5rem;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.25rem;
+      max-width: 1400px;
+      margin: 0 auto;
     }
 
     .card {
       background: var(--card-bg);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
       padding: 1.5rem;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    .card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-    }
-
-    .card-title {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: var(--text-dim);
-      margin-bottom: 1rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .card-value {
-      font-size: 2.5rem;
-      font-weight: 800;
-      margin-bottom: 0.5rem;
-    }
-
-    .card-unit {
-      font-size: 1rem;
-      font-weight: 400;
-      color: var(--text-dim);
-      margin-left: 0.25rem;
-    }
-
-    .card-footer {
-      font-size: 0.85rem;
-      color: var(--text-dim);
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
-      padding-top: 0.75rem;
-      margin-top: 0.5rem;
-    }
-
-    /* Battery Progress */
-    .soc-container {
+      display: flex;
+      flex-direction: column;
       position: relative;
-      width: 100%;
-      height: 12px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 99px;
-      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      color: var(--primary);
+    }
+
+    .card-header svg { width: 20px; height: 20px; stroke-width: 2; fill: none; stroke: currentColor; }
+    .card-title { font-size: 0.9rem; font-weight: 600; color: var(--text-dim); }
+
+    .card-value-container { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    
+    .card-value { font-size: 2.2rem; font-weight: 800; line-height: 1; margin-bottom: 0.5rem; display: flex; align-items: baseline; }
+    .card-unit { font-size: 1.1rem; font-weight: 400; color: var(--text-dim); margin-left: 0.4rem; }
+
+    .card-subtext { font-size: 0.8rem; color: var(--text-dim); margin-top: auto; }
+
+    /* Special Status card */
+    .status-text { font-size: 1.5rem; font-weight: 800; color: var(--success); text-transform: uppercase; margin: 1rem 0; }
+    .status-text.offline { color: var(--danger); }
+
+    /* Cell Grid Card */
+    .grid-cells { grid-column: span 2; }
+    .cells-wrapper {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+      gap: 0.5rem;
       margin: 1rem 0;
     }
-
-    .soc-bar {
-      height: 100%;
-      background: linear-gradient(to right, var(--primary), var(--secondary));
-      border-radius: 99px;
-      transition: width 1s ease-in-out;
-    }
-
-    /* Controls */
-    .controls {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1rem;
-    }
-
-    .control-btn {
+    .cell-box {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0.75rem;
-      background: rgba(255, 255, 255, 0.03);
-      padding: 1rem;
-      border-radius: 1rem;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      cursor: pointer;
-      transition: all 0.2s ease;
+      gap: 0.25rem;
     }
-
-    .control-btn.active {
-      background: rgba(56, 189, 248, 0.1);
-      border-color: var(--primary);
-    }
-
-    .toggle {
-      width: 48px;
-      height: 24px;
-      background: #334155;
-      border-radius: 99px;
+    .cell-bar {
+      width: 100%;
+      height: 40px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 4px;
       position: relative;
-      transition: background 0.3s ease;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column-reverse;
+      border: 1px solid transparent;
+    }
+    .cell-fill { width: 100%; height: 0%; background: var(--success); transition: height 0.4s; }
+    .cell-fill.warning { background: var(--warning); }
+    .cell-fill.danger { background: var(--danger); }
+    
+    .cell-box.max .cell-bar { border-color: var(--warning); }
+    .cell-box.min .cell-bar { border-color: var(--danger); }
+
+    .cell-num { font-size: 0.65rem; color: var(--text-dim); }
+    .cell-v { font-size: 0.75rem; font-weight: 700; }
+
+    .cell-summary {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
     }
 
-    .toggle::after {
-      content: '';
-      position: absolute;
-      top: 3px;
-      left: 3px;
-      width: 18px;
-      height: 18px;
-      background: white;
-      border-radius: 50%;
-      transition: transform 0.3s ease;
+    /* Temp & MOS Card */
+    .mos-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.75rem;
     }
+    .mos-label { font-size: 0.85rem; color: var(--text-dim); }
+    .mos-status { font-size: 0.85rem; font-weight: 700; color: var(--success); }
+    .mos-status.off { color: var(--danger); }
 
-    .control-btn.active .toggle {
-      background: var(--success);
+    /* Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
     }
-
-    .control-btn.active .toggle::after {
-      transform: translateX(24px);
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #334155; transition: .4s; border-radius: 20px;
     }
+    .slider:before {
+      position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px;
+      background-color: white; transition: .4s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--success); }
+    input:checked + .slider:before { transform: translateX(20px); }
 
-    .action-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+    /* Bottom Info */
+    .footer-actions {
+      grid-column: span 4;
+      display: flex;
+      justify-content: center;
       gap: 1rem;
       margin-top: 1rem;
     }
-
     .btn {
-      padding: 0.75rem;
-      border-radius: 1rem;
-      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text);
+      font-family: inherit;
       font-weight: 600;
       cursor: pointer;
-      font-family: inherit;
-      transition: all 0.2s;
-      text-align: center;
       text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
+    .btn:hover { background: rgba(255,255,255,0.05); }
 
-    .btn-restart {
-      background: var(--danger);
-      color: white;
+    @media (max-width: 1024px) {
+      .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+      .grid-cells { grid-column: span 2; }
+      .footer-actions { grid-column: span 2; }
     }
-
-    .btn-ota {
-      background: var(--primary);
-      color: #0f172a;
-    }
-
-    .btn:hover {
-      opacity: 0.9;
-      transform: scale(1.02);
-    }
-
-    /* Animations */
-    @keyframes pulse {
-      0% { opacity: 1; }
-      50% { opacity: 0.5; }
-      100% { opacity: 1; }
-    }
-
-    .loading {
-      animation: pulse 1.5s infinite;
-    }
-
-    @media (max-width: 600px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
+    @media (max-width: 640px) {
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .grid-cells { grid-column: span 1; }
+      .footer-actions { grid-column: span 1; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="logo">DALY BMS Standalone</div>
-      <div class="status-badge">
-        <div id="status-dot" class="status-dot"></div>
-        <span id="status-text">Conectando...</span>
-      </div>
-    </header>
+  <div class="header">
+    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M18 7l4 5-4 5M6 17l-4-5 4-5M14.5 2l-5 20"/></svg>
+    <h1>Daly BMS (BLE Bridge)</h1>
+  </div>
 
-    <div class="grid">
-      <!-- SOC Card -->
-      <div class="card">
-        <div class="card-title">Carga de Batería</div>
-        <div class="card-value"><span id="soc">0</span><span class="card-unit">%</span></div>
-        <div class="soc-container">
-          <div id="soc-bar" class="soc-bar" style="width: 0%"></div>
-        </div>
-        <div class="card-footer">
-          Voltaje Total: <span id="voltage">0.0</span>V
-        </div>
+  <div class="dashboard-grid">
+    <!-- Status -->
+    <div class="card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+        <span class="card-title">Estado BMS</span>
       </div>
-
-      <!-- Current Card -->
-      <div class="card">
-        <div class="card-title">Corriente y Potencia</div>
-        <div class="card-value"><span id="current">0.0</span><span class="card-unit">A</span></div>
-        <div class="card-value" style="font-size: 1.5rem; color: var(--primary);">
-          <span id="power">0</span><span class="card-unit">W</span>
-        </div>
-        <div class="card-footer">
-          Temperatura: <span id="temp">0.0</span>°C
-        </div>
+      <div class="card-value-container">
+        <div id="status-text" class="status-text">CONECTADO</div>
       </div>
+      <div class="card-subtext">Visto: <span id="sys-last">-</span></div>
+    </div>
 
-      <!-- Cells Card -->
-      <div class="card">
-        <div class="card-title">Celdas (Min/Max)</div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-          <div>
-            <div style="font-size: 0.8rem; color: var(--text-dim);">Max (#<span id="cell-max-num">-</span>)</div>
-            <div style="font-size: 1.5rem; font-weight: 700;"><span id="cell-max-v">0.000</span>V</div>
+    <!-- SoC -->
+    <div class="card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2" ry="2"/><line x1="22" y1="11" x2="22" y2="13"/></svg>
+        <span class="card-title">SoC Real (BMS)</span>
+      </div>
+      <div class="card-value-container">
+        <div class="card-value"><span id="soc">0.0</span><span class="card-unit">%</span></div>
+      </div>
+      <div class="card-subtext">Capacidad BMS 100% Real</div>
+    </div>
+
+    <!-- Voltage -->
+    <div class="card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <span class="card-title">Voltaje BMS</span>
+      </div>
+      <div class="card-value-container">
+        <div class="card-value"><span id="voltage">0.00</span><span class="card-unit">V</span></div>
+      </div>
+      <div class="card-subtext">Monitor de Potencia BMS</div>
+    </div>
+
+    <!-- Current -->
+    <div class="card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <span class="card-title">Amperaje BMS</span>
+      </div>
+      <div class="card-value-container">
+        <div class="card-value"><span id="current">0.00</span><span class="card-unit">A</span></div>
+      </div>
+      <div class="card-subtext">Corriente de Carga/Descarga</div>
+    </div>
+
+    <!-- Cells Grid (Wide) -->
+    <div class="card grid-cells">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <span class="card-title">Estado de Celdas (Pack 8S)</span>
+      </div>
+      <div id="cells-grid" class="cells-wrapper">
+        <!-- Dyn -->
+      </div>
+      <div class="cell-summary">
+        <div>Máx: <span id="cell-max-v" style="color:var(--warning); font-weight:700;">0.000</span>V (#<span id="cell-max-num">-</span>)</div>
+        <div>Mín: <span id="cell-min-v" style="color:var(--danger); font-weight:700;">0.000</span>V (#<span id="cell-min-num">-</span>)</div>
+        <div>Diff: <span id="cell-diff" style="color:var(--primary); font-weight:700;">0.000</span>V</div>
+      </div>
+    </div>
+
+    <!-- Temp & MOSFETs -->
+    <div class="card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+        <span class="card-title">Temp BMS</span>
+      </div>
+      <div class="card-value"><span id="temp">0.0</span><span class="card-unit">°C</span></div>
+      
+      <div style="margin-top: 1.5rem;">
+        <div class="mos-row">
+          <span class="mos-label">MOS Carga:</span>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span id="mos-c-text" class="mos-status">CONDUCIENDO</span>
+            <label class="switch">
+              <input type="checkbox" id="sw-charge" onchange="toggleMos('charge', this.checked)">
+              <span class="slider"></span>
+            </label>
           </div>
-          <div>
-            <div style="font-size: 0.8rem; color: var(--text-dim);">Min (#<span id="cell-min-num">-</span>)</div>
-            <div style="font-size: 1.5rem; font-weight: 700;"><span id="cell-min-v">0.000</span>V</div>
-          </div>
         </div>
-        <div class="card-footer">
-          Diferencia: <span id="cell-diff">0.000</span>V
-        </div>
-      </div>
-
-      <!-- MOSFET Controls -->
-      <div class="card">
-        <div class="card-title">Estado de MOSFETs</div>
-        <div class="controls">
-          <div id="btn-charge" class="control-btn" onclick="toggleMos('charge')">
-            <span style="font-size: 0.8rem; font-weight: 600;">CARGA</span>
-            <div class="toggle"></div>
-          </div>
-          <div id="btn-discharge" class="control-btn" onclick="toggleMos('discharge')">
-            <span style="font-size: 0.8rem; font-weight: 600;">DESCARGA</span>
-            <div class="toggle"></div>
+        <div class="mos-row">
+          <span class="mos-label">MOS Descarga:</span>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span id="mos-d-text" class="mos-status">CONDUCIENDO</span>
+            <label class="switch">
+              <input type="checkbox" id="sw-discharge" onchange="toggleMos('discharge', this.checked)">
+              <span class="slider"></span>
+            </label>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- System Actions -->
-    <div class="card" style="margin-bottom: 2rem;">
-      <div class="card-title">Sistema</div>
-      <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem;">
-        <div style="display: flex; justify-content: space-between;">
-          <span style="color: var(--text-dim);">Hostname</span>
-          <span id="sys-host">-.local</span>
-        </div>
-        <div style="display: flex; justify-content: space-between;">
-          <span style="color: var(--text-dim);">Dirección IP</span>
-          <span id="sys-ip">0.0.0.0</span>
-        </div>
-        <div style="display: flex; justify-content: space-between;">
-          <span style="color: var(--text-dim);">RSSI (WiFi)</span>
-          <span id="sys-rssi">0 dBm</span>
-        </div>
-        <div style="display: flex; justify-content: space-between;">
-          <span style="color: var(--text-dim);">Última Actualización</span>
-          <span id="sys-last">-</span>
+    <!-- Power -->
+    <div class="card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <span class="card-title">Potencia BMS</span>
+      </div>
+      <div class="card-value-container">
+        <div class="card-value"><span id="power">0.0</span><span class="card-unit">W</span></div>
+      </div>
+      <div class="card-subtext">Cálculo: V x A</div>
+    </div>
+
+    <!-- Consumption -->
+    <div class="card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 1 1-9-9 9 9 0 0 1 9 9z"/></svg>
+        <span class="card-title">Consumo Hoy (BMS)</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:0.5rem; font-size:0.9rem;">
+        <div style="display:flex; justify-content:space-between;"><span style="color:var(--text-dim);">Cargado:</span><span id="stats-in">0.0 Wh</span></div>
+        <div style="display:flex; justify-content:space-between;"><span style="color:var(--text-dim);">Descargado:</span><span id="stats-out">0.0 Wh</span></div>
+        <div style="display:flex; justify-content:space-between; margin-top:0.5rem; font-weight:700;">
+          <span>Neto Hoy:</span><span id="stats-net" style="color:var(--success);">+0.0 Wh</span>
         </div>
       </div>
-      <div class="action-grid">
-        <button class="btn btn-restart" onclick="restartSystem()">Reiniciar</button>
-        <a href="/update" class="btn btn-ota">Elegant OTA</a>
+    </div>
+
+    <div class="footer-actions">
+      <button class="btn" onclick="restartSystem()">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Reiniciar ESP32
+      </button>
+      <a href="/update" class="btn">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Actualizar (OTA)
+      </a>
+      <div class="btn" style="cursor:default; opacity:0.7;">
+        IP: <span id="sys-ip">0.0.0.0</span>
       </div>
     </div>
   </div>
 
   <script>
-    let lastUpdate = 0;
-
     function fetchData() {
       fetch('/api/data')
-        .then(response => response.json())
+        .then(r => r.json())
         .then(data => {
           document.getElementById('soc').innerText = data.soc.toFixed(1);
-          document.getElementById('soc-bar').style.width = data.soc + '%';
           document.getElementById('voltage').innerText = data.voltage.toFixed(2);
           document.getElementById('current').innerText = data.current.toFixed(2);
-          document.getElementById('power').innerText = Math.round(data.voltage * data.current);
+          document.getElementById('power').innerText = (data.voltage * data.current).toFixed(1);
           document.getElementById('temp').innerText = data.temp1.toFixed(1);
           
           document.getElementById('cell-max-v').innerText = data.cell_max_v.toFixed(3);
@@ -382,63 +358,74 @@ const char index_html[] PROGMEM = R"rawliteral(
           document.getElementById('cell-min-num').innerText = data.cell_min_num;
           document.getElementById('cell-diff').innerText = (data.cell_max_v - data.cell_min_v).toFixed(3);
 
-          updateMosBtn('btn-charge', data.charge_mos);
-          updateMosBtn('btn-discharge', data.discharge_mos);
+          renderCells(data);
 
-          document.getElementById('sys-host').innerText = (data.host || 'dalybms') + '.local';
+          // MOSFETs
+          updateMos('charge', data.charge_mos);
+          updateMos('discharge', data.discharge_mos);
+
           document.getElementById('sys-ip').innerText = data.ip || '-';
-          document.getElementById('sys-rssi').innerText = (data.rssi || 0) + ' dBm';
           
-          const dot = document.getElementById('status-dot');
-          const text = document.getElementById('status-text');
-          
+          const statusTxt = document.getElementById('status-text');
           if (data.connected) {
-            dot.classList.add('online');
-            text.innerText = 'Conectado al BMS';
+            statusTxt.innerText = 'CONECTADO';
+            statusTxt.className = 'status-text';
           } else {
-            dot.classList.remove('online');
-            text.innerText = 'Desconectado del BMS';
+            statusTxt.innerText = 'DESCONECTADO';
+            statusTxt.className = 'status-text offline';
           }
 
-          lastUpdate = Date.now();
           document.getElementById('sys-last').innerText = new Date().toLocaleTimeString();
-        })
-        .catch(err => {
-          console.error('Error fetching data:', err);
-          document.getElementById('status-dot').classList.remove('online');
-          document.getElementById('status-text').innerText = 'Error de Conexión';
-        });
-    }
-
-    function updateMosBtn(id, state) {
-      const btn = document.getElementById(id);
-      if (state) btn.classList.add('active');
-      else btn.classList.remove('active');
-    }
-
-    function toggleMos(type) {
-      const btn = document.getElementById('btn-' + type);
-      const newState = btn.classList.contains('active') ? 0 : 1;
-      
-      fetch(`/control?type=${type}&state=${newState}`)
-        .then(r => r.json())
-        .then(res => {
-          if (res.status === 'ok') {
-            // Optimistic update
-            updateMosBtn('btn-' + type, newState === 1);
+          
+          // Statistics
+          if(data.stats_in !== undefined) {
+            document.getElementById('stats-in').innerText = data.stats_in.toFixed(1) + ' Wh';
+            document.getElementById('stats-out').innerText = data.stats_out.toFixed(1) + ' Wh';
+            let net = data.stats_in - data.stats_out;
+            document.getElementById('stats-net').innerText = (net >= 0 ? '+' : '') + net.toFixed(1) + ' Wh';
+            document.getElementById('stats-net').style.color = net >= 0 ? 'var(--success)' : 'var(--danger)';
           }
         });
+    }
+
+    function renderCells(data) {
+      const grid = document.getElementById('cells-grid');
+      let count = data.cells ? data.cells.length : 8;
+      let html = '';
+      for (let i = 1; i <= count; i++) {
+        let v = (data.cells && data.cells[i-1]) ? data.cells[i-1] : 
+                (i === data.cell_max_num ? data.cell_max_v : 
+                (i === data.cell_min_num ? data.cell_min_v : (data.cell_max_v + data.cell_min_v)/2));
+        
+        let pct = Math.min(100, Math.max(0, ((v - 2.8) / (3.6 - 2.8)) * 100));
+        let color = v < 3.0 ? 'danger' : (v > 3.5 ? 'warning' : '');
+        
+        html += `<div class="cell-box ${i === data.cell_max_num ? 'max' : (i === data.cell_min_num ? 'min' : '')}">
+          <div class="cell-bar"><div class="cell-fill ${color}" style="height:${pct}%"></div></div>
+          <span class="cell-v">${v.toFixed(3)}</span>
+          <span class="cell-num">${i}</span>
+        </div>`;
+      }
+      grid.innerHTML = html;
+    }
+
+    function updateMos(type, state) {
+      document.getElementById('sw-' + type).checked = state;
+      const text = document.getElementById('mos-' + (type === 'charge' ? 'c' : 'd') + '-text');
+      text.innerText = state ? 'CONDUCIENDO' : 'BLOQUEADO';
+      text.className = 'mos-status' + (state ? '' : ' off');
+    }
+
+    function toggleMos(type, state) {
+      fetch(`/control?type=${type}&state=${state ? 1 : 0}`)
+        .then(r => r.json())
+        .then(res => { if(res.status !== 'ok') fetchData(); });
     }
 
     function restartSystem() {
-      if (confirm('¿Estás seguro de que quieres reiniciar el ESP32?')) {
-        fetch('/restart').then(() => {
-          alert('Reiniciando... espera unos segundos.');
-        });
-      }
+      if (confirm('¿Reiniciar dispositivo?')) fetch('/restart');
     }
 
-    // Polling
     setInterval(fetchData, 2000);
     fetchData();
   </script>
