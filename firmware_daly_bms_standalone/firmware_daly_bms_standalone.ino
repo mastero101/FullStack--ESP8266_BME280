@@ -86,7 +86,7 @@ void sendBmsCommand(uint8_t cmd, uint8_t state) {
 }
 
 bool connectBMS() {
-  NimBLEAddress bmsAddr(bms_mac, 0);
+  NimBLEAddress bmsAddr(bms_mac, bms_addr_type);
 
   if (pClient) {
     NimBLEDevice::deleteClient(pClient);

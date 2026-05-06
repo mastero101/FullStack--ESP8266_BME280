@@ -14,6 +14,11 @@ const char* password = "YOUR_WIFI_PASSWORD";
 // MAC Address of your Daly BMS Bluetooth module
 const char* bms_mac  = "00:00:00:00:00:00"; 
 
+// BLE Address Type:
+//   0 = PUBLIC  (older Daly models, MAC starts with C8:90:A8 etc.)
+//   1 = RANDOM  (newer Daly R24TM models, MAC starts with D2:xx etc.)
+const uint8_t bms_addr_type = 0;
+
 // Hostname for mDNS (Access via http://dalybms.local)
 const char* hostname = "dalybms";
 
