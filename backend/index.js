@@ -35,6 +35,7 @@ const io = new Server(server, {
 });
 
 const port = process.env.PORT || 5000;
+const DATA_RETENTION_DAYS = parseInt(process.env.DATA_RETENTION_DAYS || '365', 10);
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -978,6 +979,23 @@ io.on('connection', (socket) => {
     });
 });
 
+async function pruneOldReadings() {
+    const tables = ['readings', 'battery_readings', 'solar_readings', 'environment_readings', 'bms_readings', 'inverter_readings'];
+    for (const table of tables) {
+        try {
+            const result = await db.query(
+                `DELETE FROM ${table} WHERE created_at < NOW() - ($1 || ' days')::interval`,
+                [DATA_RETENTION_DAYS]
+            );
+            if (result.rowCount > 0) {
+                console.log(`[RETENCION] ${table}: ${result.rowCount} filas > ${DATA_RETENTION_DAYS} dias eliminadas.`);
+            }
+        } catch (err) {
+            console.error(`[RETENCION ERROR] ${table}`, err);
+        }
+    }
+}
+
 async function updateReadingAgeMetrics() {
     const tables = ['readings', 'battery_readings', 'solar_readings', 'environment_readings', 'bms_readings', 'inverter_readings'];
     for (const table of tables) {
@@ -1013,6 +1031,8 @@ if (require.main === module) {
 
     updateReadingAgeMetrics();
     setInterval(updateReadingAgeMetrics, 60000);
+
+    setInterval(pruneOldReadings, 24 * 3600000); // 1 vez al dia
 }
 
 module.exports = { app, server };
