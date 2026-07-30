@@ -24,7 +24,7 @@
 ✅ **Fase 2** — `validate` corre los tests contra un Postgres real de servicio + smoke test post-deploy (commit `dd54b40`).
 ⏭️ **Fase 3 (CI de firmware)** — **omitida a propósito**: el usuario pidió no tocar nada relacionado a firmware en esta sesión ("es complicado reflashear controladores"). El plan de la Fase 3 sigue abajo por si se retoma más adelante.
 ✅ **Fase 4** — completa: endpoint `/metrics` (commit `ee4e115`) + Prometheus conectado en `masteroserver` (`bme280-station` scrapeando `192.168.1.89:7755`, confirmado `UP` en `/targets`).
-✅ **Fase 5** — script de backup creado y verificado (commit `63b94d2`). Falta activar el timer de systemd en el servidor (Tarea 5.2, requiere SSH).
+✅ **Fase 5** — completa: script de backup (commit `63b94d2`) + timer de systemd activo en `masteroserver`, corrida manual verificada (`backup-20260730-154450.sql.gz`, ~21.8 MB, nada de 0 bytes). Nota: el `ExecStart=` del `pg-backup.service` necesita la ruta entre comillas (`ExecStart=/bin/bash "/home/mastero/FullStack- ESP8266_BME280/backend/scripts/backup-db.sh"`) — a diferencia de `EnvironmentFile=`, systemd sí separa `ExecStart=` por espacios para distinguir binario de argumentos, y la ruta del proyecto tiene un espacio literal.
 ✅ **Fase 6** — job de retención configurable (commit `e333761`), query verificada contra Postgres real.
 
 ---
@@ -629,9 +629,11 @@ Description=Backup esp8266_postgres database
 [Service]
 Type=oneshot
 EnvironmentFile=/home/mastero/FullStack- ESP8266_BME280/backend/.env
-ExecStart=/bin/bash /home/mastero/FullStack- ESP8266_BME280/backend/scripts/backup-db.sh
+ExecStart=/bin/bash "/home/mastero/FullStack- ESP8266_BME280/backend/scripts/backup-db.sh"
 EOF
 ```
+
+> **Ojo con el espacio en la ruta**: a diferencia de `EnvironmentFile=` (que toma toda la línea como un solo valor), `ExecStart=` sí separa por espacios para distinguir el binario de sus argumentos — por eso la ruta del script va entre comillas. Sin las comillas, systemd la parte en dos y falla con `/bin/bash: /home/mastero/FullStack-: No such file or directory`.
 
 - [ ] **Paso 2:** Crear el timer (todos los días a las 3:30 AM):
 
