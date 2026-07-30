@@ -39,6 +39,50 @@
     </style>
 </head>
 <body class="dark-theme">
+    <!-- Modal de Ajustes Inversor -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Ajustes de Alerta - Inversor</h2>
+                <button class="btn-icon btn-close-icon" onclick="toggleSettings()" aria-label="Cerrar ajustes"><i data-lucide="x" class="icon-20"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Umbral de Red Ausente (V)</label>
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <input type="number" id="ac-threshold-input" value="90" step="1" min="0" max="200">
+                        <span>V</span>
+                    </div>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                        Si el voltaje de Red AC cae por debajo de este valor, se asume corte de luz (el inversor pasa a operar solo con batería).
+                    </p>
+                </div>
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label>Umbral de Batería Baja (V)</label>
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <input type="number" id="batt-threshold-input" value="22.0" step="0.1" min="18" max="28">
+                        <span>V</span>
+                    </div>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                        Alerta cuando el voltaje del banco de baterías baje de este nivel.
+                    </p>
+                </div>
+                <div class="form-group" style="margin-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;">
+                    <label>Notificaciones de Escritorio</label>
+                    <div id="notif-status-container" style="display: flex; flex-direction: column; gap: 0.8rem;">
+                        <button id="btn-notif-request" class="btn-secondary" style="width: 100%; justify-content: center;" onclick="requestNotificationPermission()">
+                            <i data-lucide="bell" class="icon-18w"></i> Activar Notificaciones
+                        </button>
+                        <p id="notif-status-text" style="font-size: 0.7rem; color: var(--text-muted); text-align: center;">
+                            Requerido para alertas de red y batería en segundo plano.
+                        </p>
+                    </div>
+                </div>
+                <button class="btn-filter" style="width: 100%; margin-top: 2rem; padding: 1rem;" onclick="saveSettings()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal de Estadísticas Inversor -->
     <div id="stats-modal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
@@ -290,10 +334,11 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="pv-w">--</span><span class="card-unit">W</span>
+                        <span id="pv-w" class="skeleton">--</span><span class="card-unit">W</span>
                     </div>
                     <span id="pv-trend" class="trend-badge"></span>
                 </div>
+                <div class="card-sparkline" id="pv-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item">Volt: <b id="pv-v">--</b>V</div>
                     <div class="stat-item">Amp: <b id="pv-c">--</b>A</div>
@@ -307,10 +352,11 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="batt-v">--</span><span class="card-unit">V</span>
+                        <span id="batt-v" class="skeleton">--</span><span class="card-unit">V</span>
                     </div>
                     <span id="batt-trend" class="trend-badge"></span>
                 </div>
+                <div class="card-sparkline" id="batt-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item">Flujo: <b id="batt-w">--</b>W (<b id="batt-c">--</b>A)</div>
                     <div class="stat-item">Cap: <b id="batt-cap">--</b>%</div>
@@ -324,10 +370,11 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="out-w">--</span><span class="card-unit">W</span>
+                        <span id="out-w" class="skeleton">--</span><span class="card-unit">W</span>
                     </div>
                     <span id="out-trend" class="trend-badge"></span>
                 </div>
+                <div class="card-sparkline" id="out-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item">Nivel: <b id="load-p">--</b>%</div>
                     <div class="stat-item"><b id="out-v">--</b>V   <b id="out-f">--</b>Hz</div>
@@ -341,10 +388,11 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="ac-v">--</span><span class="card-unit">V</span>
+                        <span id="ac-v" class="skeleton">--</span><span class="card-unit">V</span>
                     </div>
                     <span id="ac-trend" class="trend-badge"></span>
                 </div>
+                <div class="card-sparkline" id="ac-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item">Frec: <b id="ac-f">--</b>Hz</div>
                     <div class="stat-item" id="ac-status-text" style="color: #10b981;">Estable</div>
@@ -411,13 +459,112 @@
         </div>
     </div>
 
+    <div id="toast-container" class="toast-container"></div>
+
     <script>
         lucide.createIcons();
         
         let chart;
         let globalLastReadingTime = null;
+        let lastNotifiedTime = { ac: 0, batt: 0 };
+        const NOTIF_COOLDOWN = 10 * 60 * 1000; // 10 minutos entre notificaciones del mismo tipo
         const ctx = document.getElementById('mainChart').getContext('2d');
         const loadingOverlay = document.getElementById('loading-overlay');
+
+        function toggleSettings() {
+            const modal = document.getElementById('settings-modal');
+            if (modal.style.display === 'flex') {
+                modal.style.display = 'none';
+            } else {
+                document.getElementById('ac-threshold-input').value = localStorage.getItem('acThreshold') || 90;
+                document.getElementById('batt-threshold-input').value = localStorage.getItem('invBattLowThreshold') || 22.0;
+                updateNotificationUI();
+                modal.style.display = 'flex';
+            }
+        }
+
+        function saveSettings() {
+            localStorage.setItem('acThreshold', document.getElementById('ac-threshold-input').value);
+            localStorage.setItem('invBattLowThreshold', document.getElementById('batt-threshold-input').value);
+
+            // Reiniciar el cooldown de notificaciones al cambiar umbrales
+            lastNotifiedTime = { ac: 0, batt: 0 };
+
+            toggleSettings();
+            showToast('Ajustes guardados', 'success');
+        }
+
+        async function requestNotificationPermission() {
+            if (!("Notification" in window)) {
+                alert("Este navegador no soporta notificaciones de escritorio.");
+                return;
+            }
+
+            const permission = await Notification.requestPermission();
+            updateNotificationUI();
+
+            if (permission === "granted") {
+                new Notification("¡Notificaciones Activadas!", {
+                    body: "Recibirás alertas si se corta la red o la batería baja demasiado.",
+                    icon: "/favicon.svg"
+                });
+            }
+        }
+
+        function updateNotificationUI() {
+            const btn = document.getElementById('btn-notif-request');
+            const statusText = document.getElementById('notif-status-text');
+
+            if (!("Notification" in window)) {
+                btn.style.display = 'none';
+                statusText.innerText = "No soportado en este navegador.";
+                return;
+            }
+
+            if (Notification.permission === "granted") {
+                btn.innerHTML = '<i data-lucide="check-circle" class="icon-18w"></i> Notificaciones Listas';
+                btn.classList.add('btn-success');
+                btn.classList.remove('btn-secondary');
+                btn.disabled = true;
+                statusText.innerText = "Recibirás alertas de escritorio.";
+                statusText.style.color = 'var(--success)';
+            } else if (Notification.permission === "denied") {
+                btn.innerHTML = '<i data-lucide="alert-circle" class="icon-18w"></i> Acceso Bloqueado';
+                btn.classList.add('btn-secondary');
+                btn.style.opacity = '0.5';
+                statusText.innerText = "Permiso denegado. Revisa los ajustes de tu navegador.";
+                statusText.style.color = 'var(--secondary)';
+            }
+            lucide.createIcons();
+        }
+
+        function checkThresholdsForNotifications(data) {
+            if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+            const acThreshold = parseFloat(localStorage.getItem('acThreshold')) || 90;
+            const battThreshold = parseFloat(localStorage.getItem('invBattLowThreshold')) || 22.0;
+            const now = Date.now();
+
+            // Red/AC ausente (el inversor paso a operar solo con bateria)
+            if (data.ac_v !== undefined && data.ac_v !== null && data.ac_v < acThreshold && (now - lastNotifiedTime.ac) > NOTIF_COOLDOWN) {
+                new Notification("⚡ Red Eléctrica Ausente", {
+                    body: `El voltaje de Red AC cayó a ${Number(data.ac_v).toFixed(0)}V (Umbral: ${acThreshold}V). El inversor está operando con batería.`,
+                    icon: "/favicon.svg",
+                    tag: "ac-alert"
+                });
+                lastNotifiedTime.ac = now;
+            }
+
+            // Batería baja
+            if (data.batt_v !== undefined && data.batt_v !== null && data.batt_v > 0 && data.batt_v <= battThreshold && (now - lastNotifiedTime.batt) > NOTIF_COOLDOWN) {
+                new Notification("🔋 Batería Baja", {
+                    body: `El banco de baterías bajó a ${Number(data.batt_v).toFixed(1)}V (Umbral: ${battThreshold}V).`,
+                    icon: "/favicon.svg",
+                    tag: "batt-alert"
+                });
+                lastNotifiedTime.batt = now;
+            }
+        }
 
         function initChart() {
             chart = new Chart(ctx, {
@@ -549,22 +696,27 @@
         }
 
         function updateLatestCards(latest, previous) {
-            document.getElementById('pv-w').innerText = latest.pv_w;
+            animateValue(document.getElementById('pv-w'), latest.pv_w, 0);
             document.getElementById('pv-v').innerText = (latest.pv_v || 0).toFixed(1);
             document.getElementById('pv-c').innerText = latest.pv_c;
-            
-            document.getElementById('batt-v').innerText = (latest.batt_v || 0).toFixed(2);
+
+            animateValue(document.getElementById('batt-v'), latest.batt_v, 2);
             document.getElementById('batt-w').innerText = latest.batt_w;
             document.getElementById('batt-c').innerText = (latest.batt_c || 0).toFixed(1);
             document.getElementById('batt-cap').innerText = latest.batt_cap;
-            
-            document.getElementById('out-w').innerText = latest.out_w;
+
+            animateValue(document.getElementById('out-w'), latest.out_w, 0);
             document.getElementById('load-p').innerText = latest.load_p;
             document.getElementById('out-v').innerText = (latest.out_v || 0).toFixed(2);
             document.getElementById('out-f').innerText = (latest.out_f || 0).toFixed(1);
-            
-            document.getElementById('ac-v').innerText = (latest.ac_v || 0).toFixed(2);
+
+            animateValue(document.getElementById('ac-v'), latest.ac_v, 2);
             document.getElementById('ac-f').innerText = (latest.ac_f || 0).toFixed(1);
+
+            renderSparkline(document.getElementById('pv-spark'), (window.currentData || []).map(r => r.pv_w), '#fbbf24');
+            renderSparkline(document.getElementById('batt-spark'), (window.currentData || []).map(r => r.batt_v), '#10b981');
+            renderSparkline(document.getElementById('out-spark'), (window.currentData || []).map(r => r.out_w), '#f43f5e');
+            renderSparkline(document.getElementById('ac-spark'), (window.currentData || []).map(r => r.ac_v), '#60a5fa');
             
             // Diagnóstico
             document.getElementById('sys-bus-v').innerText = (latest.bus_v || 0).toFixed(0);
@@ -591,6 +743,19 @@
 
             if (latest.created_at) globalLastReadingTime = latest.created_at;
             updateStatusBadge(latest.created_at, { label: 'Sistema' });
+
+            // Alertas Críticas (Dinámico)
+            const acCard = document.getElementById('card-ac');
+            const acThreshold = parseFloat(localStorage.getItem('acThreshold')) || 90;
+            if (latest.ac_v !== undefined && latest.ac_v !== null && latest.ac_v < acThreshold) acCard.classList.add('critical');
+            else acCard.classList.remove('critical');
+
+            const battCard = document.getElementById('card-batt');
+            const battThreshold = parseFloat(localStorage.getItem('invBattLowThreshold')) || 22.0;
+            if (latest.batt_v !== undefined && latest.batt_v !== null && latest.batt_v > 0 && latest.batt_v <= battThreshold) battCard.classList.add('critical');
+            else battCard.classList.remove('critical');
+
+            checkThresholdsForNotifications(latest);
         }
 
         function updateTrend(type, newVal, oldVal) {
@@ -762,15 +927,16 @@
                 }
                 chart.update('none'); // Update suave
 
-                // Actualizar tarjetas con el dato fresco del socket
+                // Actualizar cache local (antes de updateLatestCards, para que el
+                // sparkline incluya el dato mas reciente en vez de quedar un punto atras)
                 const history = window.currentData ? window.currentData.slice(-5).reverse() : [];
-                updateLatestCards(data, history);
-                
-                // Actualizar cache local
                 if (window.currentData) {
                     window.currentData.push(data);
                     if (window.currentData.length > 200) window.currentData.shift();
                 }
+
+                // Actualizar tarjetas con el dato fresco del socket
+                updateLatestCards(data, history);
             }
         });
     </script>
