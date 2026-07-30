@@ -23,7 +23,7 @@
 ✅ **Fase 1** — `index.js` importable + tests con `supertest` (commits `34751f2`, `35d3c3a`). 6/6 pasando localmente contra Postgres real.
 ✅ **Fase 2** — `validate` corre los tests contra un Postgres real de servicio + smoke test post-deploy (commit `dd54b40`).
 ⏭️ **Fase 3 (CI de firmware)** — **omitida a propósito**: el usuario pidió no tocar nada relacionado a firmware en esta sesión ("es complicado reflashear controladores"). El plan de la Fase 3 sigue abajo por si se retoma más adelante.
-✅ **Fase 4** — endpoint `/metrics` con `prom-client` (commit `ee4e115`). Verificado en navegador: formato Prometheus válido, datos reales de las 6 tablas. Falta el paso manual de conectar Prometheus (Tarea 4.2, requiere SSH).
+✅ **Fase 4** — completa: endpoint `/metrics` (commit `ee4e115`) + Prometheus conectado en `masteroserver` (`bme280-station` scrapeando `192.168.1.89:7755`, confirmado `UP` en `/targets`).
 ✅ **Fase 5** — script de backup creado y verificado (commit `63b94d2`). Falta activar el timer de systemd en el servidor (Tarea 5.2, requiere SSH).
 ✅ **Fase 6** — job de retención configurable (commit `e333761`), query verificada contra Postgres real.
 
@@ -552,16 +552,25 @@ git commit -m "feat: expose Prometheus metrics at /metrics"
 
 ### Tarea 4.2: Conectar Prometheus al nuevo endpoint (en el servidor, por SSH)
 
-- [ ] **Paso 1:** Localizar el `prometheus.yml` que usa el contenedor `prometheus` (probablemente montado como volumen — revisa con `docker inspect prometheus | grep -A5 Mounts`).
+- [ ] **Paso 1:** Localizar el `prometheus.yml` real que usa el contenedor (montado como volumen desde el host):
 
-- [ ] **Paso 2:** Agregar un nuevo `scrape_config`:
+```bash
+docker inspect prometheus --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
+```
+Busca la línea que termina en `.../prometheus.yml` — edítala en el host, no dentro del contenedor.
+
+- [ ] **Paso 2:** Agregar un nuevo `scrape_config`. **No uses `host.docker.internal`** — es una función de Docker Desktop (Mac/Windows) que no resuelve en Linux nativo por defecto, y fallaría en silencio (target `DOWN` sin error obvio). Usa la IP real del servidor en su red:
+
+```bash
+hostname -I
+```
 
 ```yaml
   - job_name: 'bme280-station'
     static_configs:
-      - targets: ['host.docker.internal:7755']
+      - targets: ['TU_IP_REAL:7755']
 ```
-(Si `host.docker.internal` no resuelve en tu setup de Docker en Linux, usa la IP del host en la red del contenedor, o `172.17.0.1` si Prometheus corre en la red bridge por defecto.)
+Si por algún firewall interno esa IP no funcionara, la alternativa es la IP del gateway del bridge de Docker (`ip addr show docker0 | grep inet`, normalmente `172.17.0.1`).
 
 - [ ] **Paso 3:** Recargar Prometheus:
 
@@ -569,7 +578,7 @@ git commit -m "feat: expose Prometheus metrics at /metrics"
 docker restart prometheus
 ```
 
-- [ ] **Paso 4:** Confirmar en `http://<ip-servidor>:9090/targets` que `bme280-station` aparece `UP`.
+- [ ] **Paso 4:** Confirmar en `http://TU_IP:9090/targets` que `bme280-station` aparece `UP`. Si sale `DOWN`, el mensaje de error ahí mismo indica si es timeout (IP/red) o conexión rechazada (puerto o proceso caído).
 
 ---
 
