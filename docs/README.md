@@ -12,6 +12,7 @@
 | [WIRING.md](./WIRING.md) | Diagramas de conexión (pinout) de cada sensor/módulo |
 | [DASHBOARD.md](./DASHBOARD.md) | Vistas del dashboard web, modo kiosco y personalización |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Puesta en producción (PM2), acceso remoto (Cloudflare Tunnel) y seguridad de credenciales |
+| [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md) | Plan de implementación priorizado: testing, CI/CD y observabilidad |
 
 ## Resumen del proyecto
 
