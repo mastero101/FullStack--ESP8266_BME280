@@ -131,6 +131,12 @@ function showToast(message, type = 'info') {
 function animateValue(el, newValue, decimals) {
     decimals = decimals || 0;
     if (!el) return;
+
+    if (newValue === undefined || newValue === null || newValue === '' || isNaN(Number(newValue))) {
+        el.textContent = '--';
+        return;
+    }
+
     const targetText = Number(newValue).toFixed(decimals);
 
     if (el.classList.contains('skeleton')) {

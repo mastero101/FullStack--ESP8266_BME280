@@ -63,47 +63,7 @@
           border-radius: 50%;
         }
 
-        /* Toast Notifications */
-        .toast-container {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 0.8rem;
-        }
-
-        .toast {
-            background: rgba(30, 41, 59, 0.9);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            min-width: 280px;
-            animation: toast-in 0.3s ease-out forwards;
-            border-left: 4px solid var(--secondary);
-        }
-
-        .toast-info { border-left-color: #60a5fa; }
-        .toast.success { border-left-color: #10b981; }
-        .toast.error { border-left-color: #f43f5e; }
-        .toast.warning { border-left-color: #f59e0b; }
-
-        @keyframes toast-in {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        @keyframes toast-out {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
-        }
+        /* Toast Notifications: ver style.css (compartido entre dashboards) */
 
         /* Keypad Styles */
         .keypad-btn {
@@ -680,7 +640,7 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="bms-soc-val">--</span><span class="card-unit">%</span>
+                        <span id="bms-soc-val" class="skeleton">--</span><span class="card-unit">%</span>
                     </div>
                 </div>
                 <div class="sub-stats">
@@ -694,9 +654,10 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="bms-volt-val">--</span><span class="card-unit">V</span>
+                        <span id="bms-volt-val" class="skeleton">--</span><span class="card-unit">V</span>
                     </div>
                 </div>
+                <div class="card-sparkline" id="bms-volt-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item">Monitor de Potencia BMS</div>
                 </div>
@@ -708,10 +669,11 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="bms-curr-val">--</span><span class="card-unit">A</span>
+                        <span id="bms-curr-val" class="skeleton">--</span><span class="card-unit">A</span>
                     </div>
                     <span id="bms-curr-status" class="trend-badge"></span>
                 </div>
+                <div class="card-sparkline" id="bms-curr-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item">Corriente de Carga/Descarga</div>
                 </div>
@@ -739,7 +701,7 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="bms-temp-val">--</span><span class="card-unit">°C</span>
+                        <span id="bms-temp-val" class="skeleton">--</span><span class="card-unit">°C</span>
                     </div>
                 </div>
                 <div class="sub-stats" style="flex-direction: column; gap: 0.5rem; align-items: stretch;">
@@ -772,9 +734,10 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="bms-pow-val">--</span><span class="card-unit">W</span>
+                        <span id="bms-pow-val" class="skeleton">--</span><span class="card-unit">W</span>
                     </div>
                 </div>
+                <div class="card-sparkline" id="bms-pow-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item" id="bms-pow-efficiency">Cálculo: V x A</div>
                 </div>
@@ -1036,6 +999,12 @@
                 
                 // Save current data for export
                 window.currentData = reversed;
+
+                // Refrescar sparklines apenas hay historico disponible, sin esperar
+                // al proximo dato del BMS (que puede tardar hasta ~60s en llegar).
+                renderSparkline(document.getElementById('bms-volt-spark'), reversed.map(r => r.voltage), '#fbbf24');
+                renderSparkline(document.getElementById('bms-curr-spark'), reversed.map(r => r.current), '#60a5fa');
+                renderSparkline(document.getElementById('bms-pow-spark'), reversed.map(r => r.power), '#6366f1');
 
                 chart.data.labels = reversed.map(r => {
                     const date = new Date(r.created_at);
@@ -1387,6 +1356,7 @@
             
             toggleSettings();
             updateLatestCards(); // Aplicar inmediatamente
+            showToast('Ajustes guardados', 'success');
         }
 
         function updateMinMaxStats(readings) {
@@ -1437,10 +1407,14 @@
             console.log('BMS Update ejecutado:', data);
             
             const fmt = (v, d=1) => (v !== undefined && v !== null) ? Number(v).toFixed(d) : '--';
-            
-            document.getElementById('bms-soc-val').innerText = fmt(data.soc, 1);
-            document.getElementById('bms-volt-val').innerText = fmt(data.voltage, 2);
-            document.getElementById('bms-curr-val').innerText = fmt(data.current, 2);
+
+            animateValue(document.getElementById('bms-soc-val'), data.soc, 1);
+            animateValue(document.getElementById('bms-volt-val'), data.voltage, 2);
+            animateValue(document.getElementById('bms-curr-val'), data.current, 2);
+
+            renderSparkline(document.getElementById('bms-volt-spark'), (window.currentData || []).map(r => r.voltage), '#fbbf24');
+            renderSparkline(document.getElementById('bms-curr-spark'), (window.currentData || []).map(r => r.current), '#60a5fa');
+            renderSparkline(document.getElementById('bms-pow-spark'), (window.currentData || []).map(r => r.power), '#6366f1');
             
             const bmsCurrStatus = document.getElementById('bms-curr-status');
             const currentVal = Number(data.current);
@@ -1499,10 +1473,10 @@
                 packContainer.innerHTML = html;
             }
             
-            document.getElementById('bms-temp-val').innerText = fmt(data.temp1, 1);
+            animateValue(document.getElementById('bms-temp-val'), data.temp1, 1);
 
             const bmsPower = data.voltage * data.current;
-            document.getElementById('bms-pow-val').innerText = bmsPower.toFixed(1);
+            animateValue(document.getElementById('bms-pow-val'), bmsPower, 1);
             
             const mosCharge = document.getElementById('bms-mos-charge');
             mosCharge.innerText = data.charge_mos ? 'CONDUCIENDO' : 'BLOQUEADO';
@@ -1817,31 +1791,7 @@
     <div id="toast-container" class="toast-container"></div>
 
     <script>
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toast-container');
-            if (!container) return;
-            
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            
-            let icon = 'info';
-            if (type === 'success') icon = 'check-circle';
-            if (type === 'error') icon = 'alert-circle';
-            if (type === 'warning') icon = 'alert-triangle';
-            
-            toast.innerHTML = `
-                <i data-lucide="${icon}"></i>
-                <span style="font-size: 0.85rem; font-weight: 500;">${message}</span>
-            `;
-            
-            container.appendChild(toast);
-            if (window.lucide) lucide.createIcons();
-            
-            setTimeout(() => {
-                toast.style.animation = 'toast-out 0.3s ease-in forwards';
-                setTimeout(() => toast.remove(), 300);
-            }, 4000);
-        }
+        // showToast() ahora vive en js/dashboard-common.js (compartido entre dashboards)
 
         let currentPin = "";
         let TARGET_PIN = "";
