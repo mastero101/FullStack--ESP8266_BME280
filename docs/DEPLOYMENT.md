@@ -17,7 +17,7 @@ pm2 startup
 El repositorio incluye [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml), que en cada `push` a `main`:
 
 1. **`validate`** (corre en un runner de GitHub, `ubuntu-latest`): instala dependencias del backend (`npm ci`) y verifica que `index.js`/`db.js` no tengan errores de sintaxis (`node --check`). `package.json` no define tests reales todavía — su script `test` es un stub que siempre falla (`exit 1`), así que el workflow **no** lo ejecuta a propósito. Si en el futuro agregas tests de verdad, reemplaza el paso de sintaxis por `npm test`.
-2. **`deploy`** (corre solo si `validate` pasa, en un **runner self-hosted** instalado en `masteroserver`): hace `git pull origin main` sobre el clon ya existente en `/home/mastero/FullStack- ESP8266_BME280`, reinstala dependencias de producción (`npm install --omit=dev`) y reinicia el proceso con `systemd-run --quiet --wait --collect pm2 restart bme280-station`.
+2. **`deploy`** (corre solo si `validate` pasa, en un **runner self-hosted** instalado en `masteroserver`): hace `git pull origin main` sobre el clon ya existente en `/home/mastero/FullStack- ESP8266_BME280`, reinstala dependencias de producción (`npm install --omit=dev`) y reinicia el proceso con `systemd-run --quiet --wait --collect --setenv=HOME=/root pm2 restart bme280-station`.
 
 #### Por qué `systemd-run` y no `pm2 restart` directo (ni `setsid`)
 
@@ -26,6 +26,8 @@ El runner self-hosted mata, al terminar el job, cualquier proceso que siga siend
 `systemd-run` (sin `--scope`) funciona distinto: en vez de que nuestro shell haga `fork()`, le pide a **systemd (PID 1)** vía D-Bus que sea *él* quien arranque el proceso. El nuevo proceso nace como hijo de PID 1 desde el primer instante — nunca fue descendiente del job, así que el recorrido de PPID del runner no lo encuentra. `--wait` hace que el step siga bloqueando y fallando visiblemente si `pm2 restart` falla; `--collect` limpia la unidad transitoria de systemd después de que termina, para no acumular basura en `systemctl list-units` en cada deploy.
 
 Se quitó también `--update-env` de `pm2 restart`: no hacía falta (el backend lee `.env` de nuevo en cada arranque vía `dotenv`, independientemente de esa bandera) y tenía un efecto secundario confirmado — el proceso quedaba con variables de entorno del job (`PWD` apuntando al `_work/` del runner) en vez de las suyas propias, visible en `pm2 info` bajo "Divergent env variables from local env".
+
+**`--setenv=HOME=/root` es obligatorio.** Las unidades transitorias de `systemd-run` arrancan sin `HOME` (ni casi ninguna variable de la sesión que las pidió). Sin esto, PM2 no encuentra el daemon real en `/root/.pm2` y crea uno nuevo y vacío en `/etc/.pm2`, que por supuesto no conoce a `bme280-station` — falla con `[PM2][ERROR] Process or Namespace bme280-station not found` (exit code 1, con `--quiet` ni siquiera se ve el mensaje; usa `--pipe` en vez de `--quiet` si necesitas depurar esto a mano). Si alguna vez migras `bme280-station` a correr como usuario `mastero` en vez de `root` (ver nota de seguridad más abajo), este valor debe cambiar a `/home/mastero`.
 
 Si algún día `systemd-run` tampoco alcanza (por ejemplo, si cambias de init system o el runner empieza a rastrear por otro mecanismo), la alternativa más robusta es sacar el restart del todo del proceso del job: encolarlo con `at now` (usa `atd`, un servicio del sistema completamente ajeno al runner) o disparar un script externo por un webhook/cron que el job solo "toca".
 

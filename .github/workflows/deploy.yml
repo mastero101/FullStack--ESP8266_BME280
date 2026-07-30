@@ -52,5 +52,8 @@ jobs:
       # systemd (PID 1) que forkee el proceso el mismo via D-Bus, asi que nace
       # fuera del arbol del job desde el inicio y sobrevive a la limpieza.
       # --wait hace que este step siga fallando visiblemente si pm2 restart falla.
+      # --setenv=HOME=/root es obligatorio: sin HOME, PM2 no encuentra el daemon
+      # real (/root/.pm2) y crea uno nuevo y vacio en /etc/.pm2 que no conoce
+      # bme280-station ("Process or Namespace bme280-station not found").
       - name: Restart service (PM2)
-        run: systemd-run --quiet --wait --collect pm2 restart bme280-station
+        run: systemd-run --quiet --wait --collect --setenv=HOME=/root pm2 restart bme280-station
