@@ -329,7 +329,9 @@ git commit -m "refactor: share updateStatusBadge across all dashboards"
 
 **Contexto:** no es un bug, es deuda de mantenibilidad. Cada página tiene entre 61 y 114 atributos `style="..."` inline. Hazlo solo si ya terminaste las Fases A y B y quieres seguir invirtiendo en esto — no bloquea nada más de este plan.
 
-**Enfoque sugerido (sin tarea detallada aquí, para no inflar el plan con algo de baja prioridad):** identifica los patrones `style="..."` que se repiten literalmente muchas veces dentro de una misma página (por ejemplo `style="display: flex; align-items: center; gap: 1rem;"` aparece decenas de veces) y conviértelos en clases utilitarias en `style.css` (`.flex-row-gap1`, etc.), reemplazando el atributo por la clase. Hazlo página por página, con un commit por página, verificando visualmente después de cada una.
+**Ya resuelto (commit `632129b`), alcance conservador:** se convirtieron a clases utilitarias (`.icon-14`, `.icon-16`, `.icon-16w`, `.icon-18w`, `.icon-20`, `.btn-close-icon` en `style.css`) solo los patrones de tamaño de ícono y el padding de los botones de cerrar modal — los más repetidos (9 a 21 veces cada uno) y los más seguros de tocar, ya que nunca son manipulados por JavaScript. Verificado en navegador que los íconos (incluso los que Lucide reemplaza por `<svg>` en tiempo de ejecución) miden exactamente lo mismo que antes.
+
+**Deliberadamente fuera de alcance:** los 21 `style="display: none;"` repetidos — estos sí están atados a estado que JavaScript lee y escribe directamente (`modal.style.display === 'flex'` en varios `toggleStats()`/`toggleSettings()`), y convertirlos a una clase habría requerido auditar cada uno de los 21 para no romper esas comprobaciones. No vale el riesgo para una limpieza de baja prioridad. Tampoco se tocaron los colores dinámicos (`style="color: var(--secondary);"` etc.) ni los layouts puntuales de cada modal — quedan para cuando se edite esa página por otro motivo, no como un esfuerzo dedicado.
 
 ---
 
