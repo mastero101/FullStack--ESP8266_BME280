@@ -46,8 +46,11 @@ jobs:
         working-directory: /home/mastero/FullStack- ESP8266_BME280/backend
         run: npm install --omit=dev
 
-      # setsid desacopla el proceso que PM2 forkea de la sesion del job: sin esto,
-      # la limpieza de "procesos huerfanos" del runner self-hosted mata el proceso
-      # de bme280-station justo despues de reiniciarlo (queda atado a la sesion del job).
+      # El runner self-hosted mata al final del job cualquier proceso que siga
+      # siendo descendiente del arbol de procesos del job (lo detecta por PPID,
+      # incluso si el proceso hizo setsid). systemd-run sin --scope le pide a
+      # systemd (PID 1) que forkee el proceso el mismo via D-Bus, asi que nace
+      # fuera del arbol del job desde el inicio y sobrevive a la limpieza.
+      # --wait hace que este step siga fallando visiblemente si pm2 restart falla.
       - name: Restart service (PM2)
-        run: setsid pm2 restart bme280-station --update-env
+        run: systemd-run --quiet --wait --collect pm2 restart bme280-station

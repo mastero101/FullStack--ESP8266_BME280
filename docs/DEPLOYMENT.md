@@ -17,7 +17,17 @@ pm2 startup
 El repositorio incluye [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml), que en cada `push` a `main`:
 
 1. **`validate`** (corre en un runner de GitHub, `ubuntu-latest`): instala dependencias del backend (`npm ci`) y verifica que `index.js`/`db.js` no tengan errores de sintaxis (`node --check`). `package.json` no define tests reales todavía — su script `test` es un stub que siempre falla (`exit 1`), así que el workflow **no** lo ejecuta a propósito. Si en el futuro agregas tests de verdad, reemplaza el paso de sintaxis por `npm test`.
-2. **`deploy`** (corre solo si `validate` pasa, en un **runner self-hosted** instalado en `masteroserver`): hace `git pull origin main` sobre el clon ya existente en `/home/mastero/FullStack- ESP8266_BME280`, reinstala dependencias de producción (`npm install --omit=dev`) y reinicia el proceso con `pm2 restart bme280-station --update-env`.
+2. **`deploy`** (corre solo si `validate` pasa, en un **runner self-hosted** instalado en `masteroserver`): hace `git pull origin main` sobre el clon ya existente en `/home/mastero/FullStack- ESP8266_BME280`, reinstala dependencias de producción (`npm install --omit=dev`) y reinicia el proceso con `systemd-run --quiet --wait --collect pm2 restart bme280-station`.
+
+#### Por qué `systemd-run` y no `pm2 restart` directo (ni `setsid`)
+
+El runner self-hosted mata, al terminar el job, cualquier proceso que siga siendo descendiente de su árbol de procesos (lo detecta recorriendo la cadena de PPID). Un primer intento con `setsid pm2 restart ...` no fue suficiente: aunque `setsid` cambia la sesión del proceso, si el runner actúa como *subreaper* de Linux (`prctl(PR_SET_CHILD_SUBREAPER)`) recaptura igual al proceso reparentado — comprobado en producción: `pm2 info bme280-station` mostró `unstable restarts: 1` justo después de un deploy con `setsid`, es decir, el runner lo mató y PM2 tuvo que relanzarlo solo.
+
+`systemd-run` (sin `--scope`) funciona distinto: en vez de que nuestro shell haga `fork()`, le pide a **systemd (PID 1)** vía D-Bus que sea *él* quien arranque el proceso. El nuevo proceso nace como hijo de PID 1 desde el primer instante — nunca fue descendiente del job, así que el recorrido de PPID del runner no lo encuentra. `--wait` hace que el step siga bloqueando y fallando visiblemente si `pm2 restart` falla; `--collect` limpia la unidad transitoria de systemd después de que termina, para no acumular basura en `systemctl list-units` en cada deploy.
+
+Se quitó también `--update-env` de `pm2 restart`: no hacía falta (el backend lee `.env` de nuevo en cada arranque vía `dotenv`, independientemente de esa bandera) y tenía un efecto secundario confirmado — el proceso quedaba con variables de entorno del job (`PWD` apuntando al `_work/` del runner) en vez de las suyas propias, visible en `pm2 info` bajo "Divergent env variables from local env".
+
+Si algún día `systemd-run` tampoco alcanza (por ejemplo, si cambias de init system o el runner empieza a rastrear por otro mecanismo), la alternativa más robusta es sacar el restart del todo del proceso del job: encolarlo con `at now` (usa `atd`, un servicio del sistema completamente ajeno al runner) o disparar un script externo por un webhook/cron que el job solo "toca".
 
 ### Por qué un runner self-hosted y no SSH desde GitHub
 
