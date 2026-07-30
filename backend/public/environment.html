@@ -18,7 +18,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Ajustes de Alerta</h2>
-                <button class="btn-icon" onclick="toggleSettings()" style="padding: 0.4rem;" aria-label="Cerrar ajustes"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
+                <button class="btn-icon btn-close-icon" onclick="toggleSettings()" aria-label="Cerrar ajustes"><i data-lucide="x" class="icon-20"></i></button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -45,7 +45,7 @@
                     <label>Notificaciones de Escritorio</label>
                     <div id="notif-status-container" style="display: flex; flex-direction: column; gap: 0.8rem;">
                         <button id="btn-notif-request" class="btn-secondary" style="width: 100%; justify-content: center;" onclick="requestNotificationPermission()">
-                            <i data-lucide="bell" style="width: 18px;"></i> Activar Notificaciones
+                            <i data-lucide="bell" class="icon-18w"></i> Activar Notificaciones
                         </button>
                         <p id="notif-status-text" style="font-size: 0.7rem; color: var(--text-muted); text-align: center;">
                             Requerido para alertas en segundo plano.
@@ -62,7 +62,7 @@
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
                 <h2>Análisis Estadístico</h2>
-                <button class="btn-icon" onclick="toggleStats()" style="padding: 0.4rem;" aria-label="Cerrar estadísticas"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
+                <button class="btn-icon btn-close-icon" onclick="toggleStats()" aria-label="Cerrar estadísticas"><i data-lucide="x" class="icon-20"></i></button>
             </div>
             <div class="modal-body">
                 <div class="stats-tabs">
@@ -255,7 +255,7 @@
                             <input type="date" id="stats-end-date" class="stats-input">
                         </div>
                         <button class="btn-filter" onclick="updateStats(true)">
-                            <i data-lucide="play" style="width: 16px; height: 16px;"></i>
+                            <i data-lucide="play" class="icon-16"></i>
                         </button>
                     </div>
                     <div class="stats-grid">
@@ -433,10 +433,10 @@
                         <button class="btn-quick active" onclick="setQuickRange('day', this)">24h</button>
                         <button class="btn-quick" onclick="setQuickRange('week', this)">7d</button>
                         <button class="btn-quick" id="btn-log" onclick="toggleLogScale()" style="margin-left: 1rem; border-color: rgba(244, 63, 94, 0.3); display: flex; align-items: center; gap: 4px;">
-                            <i data-lucide="line-chart" style="width: 14px; height: 14px;"></i> Log
+                            <i data-lucide="line-chart" class="icon-14"></i> Log
                         </button>
                         <button class="btn-quick" id="btn-smooth" onclick="toggleSmoothing()" style="border-color: rgba(16, 185, 129, 0.3); display: flex; align-items: center; gap: 4px;">
-                            <i data-lucide="waves" style="width: 14px; height: 14px;"></i> Suavizar
+                            <i data-lucide="waves" class="icon-14"></i> Suavizar
                         </button>
                     </div>
                 </div>
@@ -454,7 +454,7 @@
                         <button class="btn-filter" onclick="applyFilters()">Filtrar</button>
                         <button class="btn-filter" style="background: rgba(255,255,255,0.05); box-shadow: none; border: 1px solid rgba(255,255,255,0.1);" onclick="resetFilters()">Reset</button>
                         <button class="btn-secondary" onclick="exportToCSV()">
-                            <i data-lucide="download" style="width: 16px;"></i> CSV
+                            <i data-lucide="download" class="icon-16w"></i> CSV
                         </button>
                     </div>
                 </div>
@@ -836,14 +836,14 @@
             }
 
             if (Notification.permission === "granted") {
-                btn.innerHTML = '<i data-lucide="check-circle" style="width: 18px;"></i> Notificaciones Listas';
+                btn.innerHTML = '<i data-lucide="check-circle" class="icon-18w"></i> Notificaciones Listas';
                 btn.classList.add('btn-success');
                 btn.classList.remove('btn-secondary');
                 btn.disabled = true;
                 statusText.innerText = "Recibirás alertas de escritorio.";
                 statusText.style.color = 'var(--success)';
             } else if (Notification.permission === "denied") {
-                btn.innerHTML = '<i data-lucide="alert-circle" style="width: 18px;"></i> Acceso Bloqueado';
+                btn.innerHTML = '<i data-lucide="alert-circle" class="icon-18w"></i> Acceso Bloqueado';
                 btn.classList.add('btn-secondary');
                 btn.style.opacity = '0.5';
                 statusText.innerText = "Permiso denegado. Revisa los ajustes de tu navegador.";

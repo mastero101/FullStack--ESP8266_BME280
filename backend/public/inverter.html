@@ -44,7 +44,7 @@
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
                 <h2>Cálculos y Estadísticas</h2>
-                <button class="btn-icon" onclick="toggleStats()" style="padding: 0.4rem;" aria-label="Cerrar estadísticas"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
+                <button class="btn-icon btn-close-icon" onclick="toggleStats()" aria-label="Cerrar estadísticas"><i data-lucide="x" class="icon-20"></i></button>
             </div>
             <div class="modal-body">
                 <div class="stats-tabs">
@@ -206,7 +206,7 @@
                             <input type="date" id="stats-end-date" class="stats-input" style="width: 100%; padding: 0.6rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: #fff;">
                         </div>
                         <button class="btn-filter" onclick="updateStatsData(true)" style="padding: 0.6rem 1rem; background: var(--primary);">
-                            <i data-lucide="play" style="width: 16px; height: 16px;"></i>
+                            <i data-lucide="play" class="icon-16"></i>
                         </button>
                     </div>
                     
@@ -400,7 +400,7 @@
                         <button class="btn-filter" onclick="applyFilters()">Filtrar</button>
                         <button class="btn-filter" style="background: rgba(255,255,255,0.05); box-shadow: none; border: 1px solid rgba(255,255,255,0.1);" onclick="resetFilters()">Reset</button>
                         <button class="btn-secondary" onclick="exportToCSV()">
-                            <i data-lucide="download" style="width: 16px;"></i> CSV
+                            <i data-lucide="download" class="icon-16w"></i> CSV
                         </button>
                     </div>
                 </div>
