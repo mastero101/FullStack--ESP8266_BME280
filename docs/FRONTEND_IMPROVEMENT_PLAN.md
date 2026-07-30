@@ -6,6 +6,8 @@
 
 **Ya resuelto (commit `4987bad`):** favicon real en las 5 páginas (antes no existía ningún `<link rel="icon">`, y las notificaciones de escritorio apuntaban a un `/favicon.ico` que nunca existió) + `aria-label` en los 24 botones de solo-ícono de las 5 páginas.
 
+**Ya resuelto (commit `f742bfa`):** Fases A y B completas — `backend/public/js/dashboard-common.js` creado con `DASHBOARD_PAGES`/`initNav`/`toggleMobileNav`/`updateStatusBadge` compartidos; las 5 páginas migradas; CSS del menú móvil centralizado en `style.css`. Verificado en navegador: `index.html` y `environment.html` ahora se enlazan mutuamente (antes no), `environment.html` tiene menú móvil por primera vez, y cada badge de estado sigue reflejando datos reales sin errores de consola. Queda pendiente solo la Fase C (opcional, baja prioridad).
+
 **Arquitectura:** un archivo JS compartido (`backend/public/js/dashboard-common.js`) y las reglas CSS del menú móvil movidas de bloques `<style>` duplicados por página a `style.css`. Cero build step, cero dependencias nuevas — sigue siendo HTML/CSS/JS puro, coherente con el resto del proyecto.
 
 ## Restricciones globales
