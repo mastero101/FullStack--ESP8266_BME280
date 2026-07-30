@@ -5,6 +5,8 @@
 #include <ESPAsyncWebServer.h>
 #include <ElegantOTA.h>
 #include <ESPmDNS.h>
+#include <esp_wifi.h>
+#include <esp_coexist.h>
 #include "config.h"
 #include "web_index.h"
 
@@ -19,10 +21,15 @@
  *   - BLE Connection to Daly BMS
  */
 
-// BLE UUIDs
+// BLE UUIDs (Se ajustan en tiempo de ejecución según bms_type)
 static NimBLEUUID serviceUUID("fff0");
 static NimBLEUUID notifyUUID("fff1");
 static NimBLEUUID writeUUID("fff2");
+
+// JBD UUIDs (si bms_type == "JBD")
+const char* JBD_SERVICE = "ff00";
+const char* JBD_NOTIFY  = "ff01";
+const char* JBD_WRITE   = "ff02";
 
 // Global state
 NimBLEClient *pClient = nullptr;
@@ -56,6 +63,10 @@ const uint8_t CMD_TEMP[] = {0xA5, 0x40, 0x92, 0x08, 0x00, 0x00, 0x00,
 const uint8_t CMD_STATUS[] = {0xA5, 0x40, 0x93, 0x08, 0x00, 0x00, 0x00,
                               0x00, 0x00, 0x00, 0x00, 0x00, 0x80};
 
+// JBD Commands
+const uint8_t JBD_CMD_BASIC[] = {0xDD, 0xA5, 0x03, 0x00, 0xFF, 0xFD, 0x77};
+const uint8_t JBD_CMD_CELLS[] = {0xDD, 0xA5, 0x04, 0x00, 0xFF, 0xFC, 0x77};
+
 void notifyCallback(NimBLERemoteCharacteristic *pRemoteCharacteristic,
                     uint8_t *pData, size_t length, bool isNotify);
 
@@ -86,7 +97,39 @@ void sendBmsCommand(uint8_t cmd, uint8_t state) {
 }
 
 bool connectBMS() {
-  NimBLEAddress bmsAddr(bms_mac, bms_addr_type);
+  if (String(bms_type) == "JBD") {
+    serviceUUID = NimBLEUUID(JBD_SERVICE);
+    notifyUUID = NimBLEUUID(JBD_NOTIFY);
+    writeUUID = NimBLEUUID(JBD_WRITE);
+  } else {
+    serviceUUID = NimBLEUUID("fff0");
+    notifyUUID = NimBLEUUID("fff1");
+    writeUUID = NimBLEUUID("fff2");
+  }
+
+  Serial.println("Scanning for BMS: " + String(bms_mac));
+  NimBLEScan* pScan = NimBLEDevice::getScan();
+  pScan->setActiveScan(true);
+  pScan->setInterval(45);
+  pScan->setWindow(15);
+  
+  // En NimBLE 2.4.0 start devuelve bool, los resultados se obtienen aparte
+  pScan->start(5, false);
+  NimBLEScanResults results = pScan->getResults();
+  
+  const NimBLEAdvertisedDevice* targetDevice = nullptr;
+  for (int i = 0; i < results.getCount(); i++) {
+    const NimBLEAdvertisedDevice* device = results.getDevice(i);
+    if (device->getAddress().toString() == std::string(bms_mac)) {
+      targetDevice = device;
+      break;
+    }
+  }
+
+  if (!targetDevice) {
+    Serial.println("BMS no encontrado en escaneo.");
+    return false;
+  }
 
   if (pClient) {
     NimBLEDevice::deleteClient(pClient);
@@ -95,32 +138,32 @@ bool connectBMS() {
   pClient = NimBLEDevice::createClient();
   pClient->setClientCallbacks(new ClientCallbacks());
 
-  Serial.println("Connecting to BMS at " + String(bms_mac));
-  if (!pClient->connect(bmsAddr)) {
-    Serial.println("Connection Failed.");
+  Serial.println("Conectando a " + String(bms_mac) + "...");
+  if (!pClient->connect(targetDevice)) {
+    Serial.println("Error de conexión BLE.");
     return false;
   }
 
   NimBLERemoteService *pService = pClient->getService(serviceUUID);
   if (!pService) {
-    Serial.println("Service FFF0 not found.");
+    Serial.print("Servicio no encontrado: ");
+    Serial.println(serviceUUID.toString().c_str());
     pClient->disconnect();
     return false;
   }
 
   pWriteChar = pService->getCharacteristic(writeUUID);
-  NimBLERemoteCharacteristic *pNotifyChar =
-      pService->getCharacteristic(notifyUUID);
+  NimBLERemoteCharacteristic *pNotifyChar = pService->getCharacteristic(notifyUUID);
 
   if (!pWriteChar || !pNotifyChar) {
-    Serial.println("Characteristics not found.");
+    Serial.println("Características no encontradas.");
     pClient->disconnect();
     return false;
   }
 
   if (pNotifyChar->canNotify()) {
     if (!pNotifyChar->subscribe(true, notifyCallback)) {
-      Serial.println("Subscribe Failed.");
+      Serial.println("Error al suscribirse a notificaciones.");
       pClient->disconnect();
       return false;
     }
@@ -131,29 +174,46 @@ bool connectBMS() {
 
 void notifyCallback(NimBLERemoteCharacteristic *pRemoteCharacteristic,
                     uint8_t *pData, size_t length, bool isNotify) {
-  if (length < 13)
-    return;
-  uint8_t cmd = pData[2];
+  if (length < 7) return;
 
-  if (cmd == 0x90) { // SOC
-    bmsData.voltage = ((pData[4] << 8) | pData[5]) / 10.0;
-    int raw_curr = (pData[8] << 8) | pData[9];
-    bmsData.current = (raw_curr - 30000) / 10.0;
-    bmsData.soc = ((pData[10] << 8) | pData[11]) / 10.0;
-  } else if (cmd == 0x91) { // Cells
-    bmsData.cell_max_v = ((pData[4] << 8) | pData[5]) / 1000.0;
-    bmsData.cell_max_num = pData[6];
-    bmsData.cell_min_v = ((pData[7] << 8) | pData[8]) / 1000.0;
-    bmsData.cell_min_num = pData[9];
-  } else if (cmd == 0x92) { // Temperatures
-    bmsData.temp1 = pData[4] - 40;
-  } else if (cmd == 0x93) { // Status (MOSFETs)
-    bmsData.charge_mos = pData[5] == 1;
-    bmsData.discharge_mos = pData[6] == 1;
-  }
-
-  if (cmd >= 0x90 && cmd <= 0x93) {
-    lastBmsMillis = millis();
+  if (String(bms_type) == "JBD") {
+    // Protocolo JBD (XiaoXiang)
+    if (pData[0] == 0xDD) {
+      uint8_t cmd = pData[1];
+      if (cmd == 0x03) { // Info Básica
+        bmsData.voltage = ((pData[4] << 8) | pData[5]) / 100.0;
+        int16_t raw_curr = (pData[6] << 8) | pData[7];
+        bmsData.current = raw_curr / 100.0;
+        bmsData.soc = pData[23]; // Byte 19 del payload (4 + 19)
+        bmsData.charge_mos = (pData[24] & 0x01);
+        bmsData.discharge_mos = (pData[24] & 0x02);
+        bmsData.temp1 = (((pData[27] << 8) | pData[28]) - 2731) / 10.0;
+      } else if (cmd == 0x04) { // Celdas
+        bmsData.cell_max_v = ((pData[4] << 8) | pData[5]) / 1000.0; // Solo ejemplo, JBD envía todas las celdas
+      }
+      lastBmsMillis = millis();
+    }
+  } else {
+    // Protocolo Daly
+    if (length < 13) return;
+    uint8_t cmd = pData[2];
+    if (cmd == 0x90) { // SOC
+      bmsData.voltage = ((pData[4] << 8) | pData[5]) / 10.0;
+      int raw_curr = (pData[8] << 8) | pData[9];
+      bmsData.current = (raw_curr - 30000) / 10.0;
+      bmsData.soc = ((pData[10] << 8) | pData[11]) / 10.0;
+    } else if (cmd == 0x91) { // Cells
+      bmsData.cell_max_v = ((pData[4] << 8) | pData[5]) / 1000.0;
+      bmsData.cell_max_num = pData[6];
+      bmsData.cell_min_v = ((pData[7] << 8) | pData[8]) / 1000.0;
+      bmsData.cell_min_num = pData[9];
+    } else if (cmd == 0x92) { // Temperatures
+      bmsData.temp1 = pData[4] - 40;
+    } else if (cmd == 0x93) { // Status (MOSFETs)
+      bmsData.charge_mos = pData[5] == 1;
+      bmsData.discharge_mos = pData[6] == 1;
+    }
+    if (cmd >= 0x90 && cmd <= 0x93) lastBmsMillis = millis();
   }
 }
 
@@ -171,6 +231,12 @@ void setup() {
 
   NimBLEDevice::init("DalyStandalone");
   NimBLEDevice::setPower(ESP_PWR_LVL_P9);
+
+  // --- WiFi/BLE Coexistence Settings ---
+  // Establece preferencia equilibrada entre WiFi y Bluetooth
+  esp_coex_preference_set(ESP_COEX_PREFER_BALANCE);
+  // Fuerza a WiFi a permitir que BT use la antena (ahorro de energía del módem)
+  esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
 
   // --- Web Server Routes ---
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -252,14 +318,19 @@ void loop() {
   // Polling BMS Data
   if (millis() - lastPollMillis > pollInterval) {
     if (pWriteChar) {
-      pWriteChar->writeValue(CMD_SOC, 13, false);
-      delay(150);
-      pWriteChar->writeValue(CMD_CELLS, 13, false);
-      delay(150);
-      pWriteChar->writeValue(CMD_TEMP, 13, false);
-      delay(150);
-      pWriteChar->writeValue(CMD_STATUS, 13, false);
-      delay(150);
+      if (String(bms_type) == "JBD") {
+        pWriteChar->writeValue(JBD_CMD_BASIC, 7, false);
+        delay(200);
+        pWriteChar->writeValue(JBD_CMD_CELLS, 7, false);
+      } else {
+        pWriteChar->writeValue(CMD_SOC, 13, false);
+        delay(150);
+        pWriteChar->writeValue(CMD_CELLS, 13, false);
+        delay(150);
+        pWriteChar->writeValue(CMD_TEMP, 13, false);
+        delay(150);
+        pWriteChar->writeValue(CMD_STATUS, 13, false);
+      }
     }
     lastPollMillis = millis();
   }

@@ -10,13 +10,18 @@
 const char* ssid     = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
 
-// --- Daly BMS Configuration ---
-// MAC Address of your Daly BMS Bluetooth module
+// --- Daly/JBD BMS Configuration ---
+// MAC Address of your BMS Bluetooth module (Check with nRF Connect)
 const char* bms_mac  = "00:00:00:00:00:00"; 
 
+// BMS Type: 
+//   "DALY" = Classic Daly BMS protocol
+//   "JBD"  = JBD / Jiabaida / XiaoXiang / Daly R24TM Active Balancer protocol
+const char* bms_type = "DALY"; 
+
 // BLE Address Type:
-//   0 = PUBLIC  (older Daly models, MAC starts with C8:90:A8 etc.)
-//   1 = RANDOM  (newer Daly R24TM models, MAC starts with D2:xx etc.)
+//   0 = PUBLIC  (older Daly models)
+//   1 = RANDOM  (newer Daly R24TM / JBD models)
 const uint8_t bms_addr_type = 0;
 
 // Hostname for mDNS (Access via http://dalybms.local)

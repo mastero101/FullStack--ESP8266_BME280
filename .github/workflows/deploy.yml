@@ -1,0 +1,50 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # package.json no tiene tests reales todavia (el script "test" es un stub
+      # que siempre falla), asi que solo verificamos que el codigo cargue sin
+      # errores de sintaxis antes de tocar el servidor.
+      - name: Check syntax
+        run: |
+          node --check index.js
+          node --check db.js
+
+  deploy:
+    name: Deploy to server
+    needs: validate
+    runs-on: self-hosted
+    steps:
+      - name: Pull latest changes
+        working-directory: /home/mastero/FullStack- ESP8266_BME280
+        run: git pull origin main
+
+      - name: Install backend dependencies
+        working-directory: /home/mastero/FullStack- ESP8266_BME280/backend
+        run: npm install --omit=dev
+
+      - name: Restart service (PM2)
+        run: pm2 restart bme280-station --update-env

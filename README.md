@@ -44,12 +44,14 @@ El proyecto se divide de manera modular:
 Cada subcarpeta corresponde a un equipo diferente con un propósito único.
 
 1.  **firmware_BME280**: Sensor integral estándar para Clima (Temp, Humedad, Presión) para ESP8266.
-2.  **firmware_AHT20_BMP280**: Estación meteorológica de súper-alta precisión para la placa Wemos D1 Mini.
-3.  **firmware_ina226**: Módulo de voltaje/amperaje para evaluación de una Batería individual centralizada.
-4.  **firmware_ina228_solar**: Supervisor y analizador métrico acoplado de Alta Resolución de entrada de paneles solares.
-5.  **firmware_daly_bms_ble**: Controlador Bluetooth en placa ESP32 para lectura de celdas procedentes de Daly BMS.
+2.  **firmware_ina226**: Módulo de voltaje/amperaje para evaluación de una Batería individual centralizada.
+3.  **firmware_ina228_solar**: Supervisor y analizador métrico acoplado de Alta Resolución de entrada de paneles solares.
+4.  **firmware_daly_bms_ble**: Puente Bluetooth↔backend en placa ESP32 para lectura de celdas procedentes de Daly/JBD BMS.
+5.  **firmware_daly_bms_standalone**: Variante ESP32 del BMS Daly/JBD con dashboard web propio, independiente del backend.
 6.  **ESP32_Inverter_Monitor**: Lector Serial MAX3232 para extraer datos internos de inversores híbridos vía comunicación RS232.
 7.  **firmware_display_oled**: Pantalla oled "Hub" para mostrar la información ya recabada de sensores dentro de la misma red local.
+
+> No incluido actualmente en el repositorio: un firmware para el sensor AHT20+BMP280 (el backend ya expone los endpoints `/api/environment*` para él). Detalles en [docs/FIRMWARE.md](./docs/FIRMWARE.md#módulo-pendiente-sensor-aht20bmp280).
 
 ### Compilación y Carga en tu Microcontrolador
 
@@ -70,9 +72,10 @@ Ingresando desde el navegador al servidor backend:
 
 - **Inicio / Clima (`/index.html`)**: General, métrica histórica de BME280.
 - **Ambiental Avanzado (`/environment.html`)**: Medidas AHT20 + BMP280, con cálculo dinámico de Sensación térmica e Índice de punto de Rocío (Dew point).
-- **Salud de Baterías (`/battery.html`)**: Evaluación INA226 con métricas estimativas de autonomía.
+- **Salud de Baterías (`/battery.html`)**: Evaluación INA226 y/o BMS Daly (voltaje, SOC, celdas) con métricas estimativas de autonomía.
 - **Producción Solar (`/solar.html`)**: Rendimiento fotovoltaico y métrica con sensor moderno INA228.
-- **BMS Daly (`/bms.html`) e Inversor (`/inverter.html`)**: Mapeos a nivel de red interna híbrida/BMS a la placa.
+- **Inversor (`/inverter.html`)**: Mapeo a nivel de red interna del inversor híbrido conectado por RS232.
+- **Modo Kiosco (`/kiosk`, `/kiosk-battery`, `/kiosk-solar`)**: Paneles fijos sin navegación, pensados para pantallas dedicadas.
 
 ---
 
@@ -84,6 +87,14 @@ cloudflared tunnel --url http://127.0.0.1:7755
 Comparte e ingresa al enlace autogenerado `.trycloudflare.com`.
 
 ---
-*Si deseas entender más de la distribución arquitectónica puedes revisar el archivo [DOCUMENTATION.md](./DOCUMENTATION.md)*.
 
-*Para replicar la circuitería y los diagramas de conexión, visita [WIRING.md](./WIRING.md)*.
+## 📚 Documentación completa
+
+Este README cubre solo la puesta en marcha rápida. La documentación técnica detallada vive en [`/docs`](./docs/README.md):
+
+- [Arquitectura del sistema](./docs/ARCHITECTURE.md)
+- [Backend: instalación, esquema de BD y referencia completa de la API](./docs/BACKEND.md)
+- [Firmware: configuración y detalle de cada módulo](./docs/FIRMWARE.md)
+- [Diagramas de conexión (wiring)](./docs/WIRING.md)
+- [Dashboard web y modo kiosco](./docs/DASHBOARD.md)
+- [Despliegue en producción y seguridad](./docs/DEPLOYMENT.md)
