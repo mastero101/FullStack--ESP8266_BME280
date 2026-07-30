@@ -68,7 +68,36 @@ Esto lo debes ejecutar tú por SSH en el servidor — no tengo acceso a `mastero
 
 - La rama por defecto se llama `main` y el remoto configurado en el servidor es `origin`.
 - El proceso PM2 se llama exactamente `bme280-station` (confirmado con `pm2 status`) y ya existe — el workflow solo lo reinicia, no lo crea desde cero.
-- El repo ya está clonado en `/home/mastero/FullStack- ESP8266_BME280` y el `git pull` puede hacerse *fast-forward* (sin cambios locales sin commitear en archivos versionados). Si el pull falla por conflictos, el job fallará de forma visible en vez de sobreescribir cambios en silencio.
+- **El directorio de producción es un clon git real** (`git status` funciona ahí, con `origin` apuntando al repo de GitHub) y el `git pull` puede hacerse *fast-forward* (sin cambios locales sin commitear en archivos versionados). Si el pull falla por conflictos, el job fallará de forma visible en vez de sobreescribir cambios en silencio.
+
+#### Preparación única: convertir el directorio existente en un clon git
+
+Si el directorio de producción se desplegó originalmente a mano (p.ej. por `scp`, como sugería el README anterior del backend) en vez de con `git clone`, el primer `git pull` del workflow falla con `fatal: not a git repository`. Se soluciona una sola vez, por SSH:
+
+```bash
+cd "/home/mastero/FullStack- ESP8266_BME280"
+git status   # confirma el error "not a git repository"
+
+# Backup completo por seguridad — reset --hard va a sobreescribir cualquier
+# archivo trackeado que difiera del repo de GitHub.
+cp -a "/home/mastero/FullStack- ESP8266_BME280" "/home/mastero/FullStack- ESP8266_BME280.bak-$(date +%Y%m%d)"
+
+git init -b main
+git remote add origin https://github.com/mastero101/<nombre-de-este-repo>.git
+git fetch origin main
+git reset --hard origin/main
+
+git status   # debe quedar "working tree clean" en main
+```
+
+`backend/.env` y todo `*/config.h` nunca estuvieron trackeados en git, así que `reset --hard` no los toca — pero cualquier otro archivo con cambios manuales no commiteados sí se pierde (por eso el backup previo). Carpetas sueltas sin relación con el repo (ver nota sobre `firmware`/`firmware_ina226_solar` más abajo) tampoco se tocan, quedan como cruft sin trackear.
+
+Como el directorio pertenece al usuario `mastero` pero el runner corre como `root`, git bloqueará cualquier operación ahí con `fatal: detected dubious ownership in repository` hasta que se agregue una excepción **en la configuración global de root** (no en la de `mastero`, aunque tu prompt diga `root@masteroserver` — el mismo problema de `$HOME` heredado que ya vimos con `svc.sh`):
+
+```bash
+HOME=/root git config --global --add safe.directory "/home/mastero/FullStack- ESP8266_BME280"
+cat /root/.gitconfig   # confirma que la excepción quedó en /root/.gitconfig, no en el de mastero
+```
 
 ## Acceso remoto sin abrir puertos
 

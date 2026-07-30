@@ -46,5 +46,8 @@ jobs:
         working-directory: /home/mastero/FullStack- ESP8266_BME280/backend
         run: npm install --omit=dev
 
+      # setsid desacopla el proceso que PM2 forkea de la sesion del job: sin esto,
+      # la limpieza de "procesos huerfanos" del runner self-hosted mata el proceso
+      # de bme280-station justo despues de reiniciarlo (queda atado a la sesion del job).
       - name: Restart service (PM2)
-        run: pm2 restart bme280-station --update-env
+        run: setsid pm2 restart bme280-station --update-env
