@@ -945,19 +945,23 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(port, () => {
-    console.log(`Backend running on http://localhost:${port}`);
-});
+if (require.main === module) {
+    server.listen(port, () => {
+        console.log(`Backend running on http://localhost:${port}`);
+    });
 
-// Data Cleanup Job (Hourly)
-setInterval(async () => {
-    try {
-        const queryText = "DELETE FROM readings WHERE temperature > 65 OR temperature < -25 OR pressure < 800 OR pressure > 1200";
-        const result = await db.query(queryText);
-        if (result.rowCount > 0) {
-            console.log(`[LIMPIEZA] ${result.rowCount} registros eliminados.`);
+    // Data Cleanup Job (Hourly)
+    setInterval(async () => {
+        try {
+            const queryText = "DELETE FROM readings WHERE temperature > 65 OR temperature < -25 OR pressure < 800 OR pressure > 1200";
+            const result = await db.query(queryText);
+            if (result.rowCount > 0) {
+                console.log(`[LIMPIEZA] ${result.rowCount} registros eliminados.`);
+            }
+        } catch (err) {
+            console.error("[LIMPIEZA ERROR]", err);
         }
-    } catch (err) {
-        console.error("[LIMPIEZA ERROR]", err);
-    }
-}, 3600000); // 1 Hour
+    }, 3600000); // 1 Hour
+}
+
+module.exports = { app, server };
