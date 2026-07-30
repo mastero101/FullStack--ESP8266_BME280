@@ -696,6 +696,9 @@
         }
 
         function updateStatusBadge(createdAt) {
+            if (!createdAt) return;
+            globalLastReadingTime = createdAt;
+
             const lastRead = new Date(createdAt).getTime();
             const diffMin = (Date.now() - lastRead) / 60000;
             const dot = document.getElementById('status-dot');
@@ -746,7 +749,14 @@
 
         initChart();
         fetchReadings();
-        
+        // El polling ya no es necesario gracias a Socket.io,
+        // pero mantenemos una verificación de estado cada 30s por si el inversor deja de reportar
+        setInterval(() => {
+            if (globalLastReadingTime) {
+                updateStatusBadge(globalLastReadingTime);
+            }
+        }, 30000);
+
         function toggleMobileNav() {
             const menu = document.getElementById('mobile-nav-items');
             const chev = document.getElementById('nav-chevron');
