@@ -8,9 +8,29 @@ jobs:
   validate:
     name: Validate backend
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
+    env:
+      DB_USER: test_user
+      DB_PASSWORD: test_pass
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: test_db
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,13 +45,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # package.json no tiene tests reales todavia (el script "test" es un stub
-      # que siempre falla), asi que solo verificamos que el codigo cargue sin
-      # errores de sintaxis antes de tocar el servidor.
-      - name: Check syntax
-        run: |
-          node --check index.js
-          node --check db.js
+      - name: Run tests
+        run: npm test
 
   deploy:
     name: Deploy to server
@@ -57,3 +72,19 @@ jobs:
       # bme280-station ("Process or Namespace bme280-station not found").
       - name: Restart service (PM2)
         run: systemd-run --quiet --wait --collect --setenv=HOME=/root pm2 restart bme280-station
+
+      # Si el restart deja el backend caido o respondiendo 500, este step falla
+      # visiblemente en vez de que el job quede en verde con el backend roto.
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:7755/api/readings/latest || echo "000")
+            if [ "$code" = "200" ]; then
+              echo "Smoke test OK (HTTP $code, intento $i)"
+              exit 0
+            fi
+            echo "Intento $i: HTTP $code, reintentando en 2s..."
+            sleep 2
+          done
+          echo "Smoke test FALLO: el backend no respondio 200 tras el restart"
+          exit 1
