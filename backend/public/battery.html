@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IoT Dashboard - Battery Monitor</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         /* Switch Toggle styling */
         .switch {
@@ -248,7 +249,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>⚡ Ajustes de Alerta - Batería</h2>
-                <button class="btn-icon" onclick="toggleSettings()" style="padding: 0.4rem;"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
+                <button class="btn-icon" onclick="toggleSettings()" style="padding: 0.4rem;" aria-label="Cerrar ajustes"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -428,7 +429,7 @@
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
                 <h2>Análisis Estadístico</h2>
-                <button class="btn-icon" onclick="toggleStats()" style="padding: 0.4rem;"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
+                <button class="btn-icon" onclick="toggleStats()" style="padding: 0.4rem;" aria-label="Cerrar estadísticas"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
             </div>
             <div class="modal-body">
                 <div class="stats-tabs">
@@ -722,16 +723,16 @@
                 </div>
             </div>
             <div class="header-actions" style="display: flex; align-items: center; gap: 1rem;">
-                <button class="btn-icon" id="btn-refresh-stats" onclick="updateStats()" title="Refrescar Estadísticas" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2);">
+                <button class="btn-icon" id="btn-refresh-stats" onclick="updateStats()" title="Refrescar Estadísticas" aria-label="Refrescar Estadísticas" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2);">
                     <i data-lucide="refresh-cw"></i>
                 </button>
-                <button class="btn-icon" onclick="window.location.href='/kiosk-battery'" title="Modo Quiosco Batería">
+                <button class="btn-icon" onclick="window.location.href='/kiosk-battery'" title="Modo Quiosco Batería" aria-label="Modo Quiosco Batería">
                     <i data-lucide="layout-dashboard"></i>
                 </button>
-                <button class="btn-icon" onclick="toggleStats()" title="Estadísticas">
+                <button class="btn-icon" onclick="toggleStats()" title="Estadísticas" aria-label="Estadísticas">
                     <i data-lucide="bar-chart-2"></i>
                 </button>
-                <button class="btn-icon" onclick="toggleSettings()" title="Ajustes">
+                <button class="btn-icon" onclick="toggleSettings()" title="Ajustes" aria-label="Ajustes">
                     <i data-lucide="settings"></i>
                 </button>
             </div>
@@ -1271,7 +1272,7 @@
             if (permission === "granted") {
                 new Notification("¡Notificaciones Activadas!", {
                     body: "Recibirás alertas cuando los niveles sean críticos.",
-                    icon: "/favicon.ico"
+                    icon: "/favicon.svg"
                 });
             }
         }
@@ -1316,7 +1317,7 @@
             if (data.voltage >= highVoltThreshold && (now - lastNotifiedTime.temp) > NOTIF_COOLDOWN) {
                 new Notification("⚡ Alerta de Sobrevoltaje", {
                     body: `Voltaje: ${data.voltage.toFixed(1)}V — supera el umbral de ${highVoltThreshold}V`,
-                    icon: "/favicon.ico",
+                    icon: "/favicon.svg",
                     tag: "batt-high-volt"
                 });
                 lastNotifiedTime.temp = now;
@@ -1326,7 +1327,7 @@
             if (data.voltage > 0 && data.voltage <= lowVoltThreshold && (now - lastNotifiedTime.temp) > NOTIF_COOLDOWN) {
                 new Notification("🪫 Alerta de Batería Baja", {
                     body: `Voltaje: ${data.voltage.toFixed(1)}V — por debajo del umbral de ${lowVoltThreshold}V`,
-                    icon: "/favicon.ico",
+                    icon: "/favicon.svg",
                     tag: "batt-low-volt"
                 });
                 lastNotifiedTime.temp = now;
@@ -1336,7 +1337,7 @@
             if (currentAmps >= currThreshold && (now - lastNotifiedTime.hum) > NOTIF_COOLDOWN) {
                 new Notification("🔌 Alerta de Sobrecorriente", {
                     body: `Corriente: ${currentAmps.toFixed(2)}A — supera el umbral de ${currThreshold}A`,
-                    icon: "/favicon.ico",
+                    icon: "/favicon.svg",
                     tag: "batt-overcurr"
                 });
                 lastNotifiedTime.hum = now;

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IoT Dashboard - Solar Monitor</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="style.css">
     <script src="lib/chart.min.js"></script>
     <script src="lib/lucide.min.js"></script>
@@ -104,7 +105,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>☀️ Ajustes de Monitoreo - Solar</h2>
-                <button class="btn-icon" onclick="toggleSettings()" style="padding: 0.4rem;"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
+                <button class="btn-icon" onclick="toggleSettings()" style="padding: 0.4rem;" aria-label="Cerrar ajustes"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -158,7 +159,7 @@
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
                 <h2>Análisis Estadístico</h2>
-                <button class="btn-icon" onclick="toggleStats()" style="padding: 0.4rem;"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
+                <button class="btn-icon" onclick="toggleStats()" style="padding: 0.4rem;" aria-label="Cerrar estadísticas"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
             </div>
             <div class="modal-body">
                 <div class="stats-tabs">
@@ -367,13 +368,13 @@
                     </div>
                     <span id="last-seen" style="font-size: 0.65rem; color: var(--text-muted); margin-left: 1.1rem;">Visto: --</span>
                 </div>
-                <button class="btn-icon" onclick="window.location.href='/kiosk-solar'" title="Modo Quiosco Solar">
+                <button class="btn-icon" onclick="window.location.href='/kiosk-solar'" title="Modo Quiosco Solar" aria-label="Modo Quiosco Solar">
                     <i data-lucide="layout-dashboard"></i>
                 </button>
-                <button class="btn-icon" onclick="toggleStats()" title="Estadísticas">
+                <button class="btn-icon" onclick="toggleStats()" title="Estadísticas" aria-label="Estadísticas">
                     <i data-lucide="bar-chart-2"></i>
                 </button>
-                <button class="btn-icon" onclick="toggleSettings()" title="Ajustes">
+                <button class="btn-icon" onclick="toggleSettings()" title="Ajustes" aria-label="Ajustes">
                     <i data-lucide="settings"></i>
                 </button>
             </div>
@@ -849,7 +850,7 @@
             if (permission === "granted") {
                 new Notification("¡Notificaciones Activadas!", {
                     body: "Recibirás alertas cuando los niveles sean críticos.",
-                    icon: "/favicon.ico"
+                    icon: "/favicon.svg"
                 });
             }
         }
@@ -894,7 +895,7 @@
             if (data.voltage >= highVoltThreshold && (now - lastNotifiedTime.temp) > NOTIF_COOLDOWN) {
                 new Notification("☀️ Alerta de Sobrevoltaje Solar", {
                     body: `Voltaje: ${data.voltage.toFixed(1)}V — registra nivel crítico de ${highVoltThreshold}V`,
-                    icon: "/favicon.ico",
+                    icon: "/favicon.svg",
                     tag: "solar-high-volt"
                 });
                 lastNotifiedTime.temp = now;
@@ -904,7 +905,7 @@
             if (currentAmps >= currThreshold && (now - lastNotifiedTime.hum) > NOTIF_COOLDOWN) {
                 new Notification("⚡ Alerta de Generación Elevada", {
                     body: `Corriente Solar: ${currentAmps.toFixed(2)}A — supera el umbral de ${currThreshold}A`,
-                    icon: "/favicon.ico",
+                    icon: "/favicon.svg",
                     tag: "solar-overcurr"
                 });
                 lastNotifiedTime.hum = now;
