@@ -9,6 +9,7 @@
     <script src="lib/chart.min.js"></script>
     <script src="lib/lucide.min.js"></script>
     <script src="lib/socket.io.min.js"></script>
+    <script src="js/dashboard-common.js"></script>
 </head>
 
 <body>
@@ -313,11 +314,15 @@
             <div>
                 <h1>Estación AHT20</h1>
                 <p style="color: var(--text-muted)">Monitoreo Ambiental de Alta Precisión</p>
-                <div class="nav-tabs" style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/index.html'">BME280 (Clima)</button>
-                    <button class="btn-filter active">Ambiental (AHT20)</button>
-                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/battery.html'">Batería</button>
-                    <button class="btn-filter" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/solar.html'">Solar</button>
+                <div class="nav-tabs" style="margin-top: 1rem; display: flex; gap: 0.5rem;"></div>
+
+                <!-- Menú móvil personalizado -->
+                <div class="nav-mobile">
+                    <div class="nav-custom-dropdown" onclick="toggleMobileNav()">
+                        <span>Sección: --</span>
+                        <i data-lucide="chevron-down" id="nav-chevron"></i>
+                    </div>
+                    <div class="nav-dropdown-items" id="mobile-nav-items"></div>
                 </div>
             </div>
             <div class="header-actions" style="display: flex; align-items: center; gap: 1rem;">
@@ -779,7 +784,8 @@
                     if (latest.humidity >= humThreshold) humCard.classList.add('critical-hum');
                     else humCard.classList.remove('critical-hum');
 
-                    updateStatusBadge(latest.created_at);
+                    if (latest.created_at) globalLastReadingTime = latest.created_at;
+                    updateStatusBadge(latest.created_at, { label: 'Sensor' });
                     globalLastReadingTime = latest.created_at;
                     
                     // Check Notifications on initial load / refresh
@@ -1034,45 +1040,6 @@
             updateLatestCards(); // Aplicar inmediatamente
         }
 
-        function updateStatusBadge(createdAt) {
-            if (!createdAt) return;
-            globalLastReadingTime = createdAt;
-            
-            const dateStr = createdAt.includes('Z') || createdAt.includes('+') ? createdAt : createdAt.replace(' ', 'T') + 'Z';
-            const lastRead = new Date(dateStr).getTime();
-            const now = new Date().getTime();
-            const diffMin = (now - lastRead) / 60000;
-            
-            const dot = document.getElementById('status-dot');
-            const text = document.getElementById('status-text');
-            const seen = document.getElementById('last-seen');
-            
-            // Limpiar estados previos
-            dot.classList.remove('online', 'delayed', 'offline');
-            
-            if (diffMin < 2) {
-                dot.classList.add('online');
-                text.innerText = 'Sensor Online';
-                text.style.color = 'var(--success)';
-            } else if (diffMin < 10) {
-                dot.classList.add('delayed');
-                text.innerText = 'Sensor Demorado';
-                text.style.color = 'var(--warning)';
-            } else {
-                dot.classList.add('offline');
-                text.innerText = 'Sensor Desconectado';
-                text.style.color = 'var(--secondary)';
-            }
-
-            // Actualizar Tiempo Relativo
-            if (diffMin < 1) {
-                seen.innerText = 'Visto ahora mismo';
-            } else if (diffMin < 60) {
-                seen.innerText = `Visto hace ${Math.floor(diffMin)} min`;
-            } else {
-                seen.innerText = `Visto hace ${Math.floor(diffMin/60)}h ${Math.floor(diffMin%60)}m`;
-            }
-        }
 
         function updateMinMaxStats(readings) {
             if (!readings || readings.length === 0) return;
@@ -1175,7 +1142,8 @@
             else humCard.classList.remove('critical-hum');
 
             // Status Online & Actualizar Tiempo
-            updateStatusBadge(data.created_at);
+            if (data.created_at) globalLastReadingTime = data.created_at;
+            updateStatusBadge(data.created_at, { label: 'Sensor' });
             globalLastReadingTime = data.created_at;
 
             // Check Notifications
@@ -1370,15 +1338,17 @@
 
         initChart();
         fetchReadings();
-        // El polling ya no es necesario gracias a Socket.io, 
+        // El polling ya no es necesario gracias a Socket.io,
         // pero mantenemos una verificación de estado cada 1 min por si acaso
         setInterval(() => {
             if (globalLastReadingTime) {
-                updateStatusBadge(globalLastReadingTime);
+                updateStatusBadge(globalLastReadingTime, { label: 'Sensor' });
             }
         }, 30000); // Cada 30 segundos verificar salud
-        
+
         setInterval(updateLatestCards, 60000);
+
+        initNav('/environment.html', 'Ambiente');
     </script>
 </body>
 </html>
