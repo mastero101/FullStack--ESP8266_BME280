@@ -57,13 +57,13 @@ Tablas creadas por `backend/db.js`:
 | `readings` | Clima (BME280) | `temperature`, `humidity`, `pressure`, `heat_index`, `dew_point`, `source`, `timestamp`, `created_at` |
 | `battery_readings` | Batería (INA226 y "puente" BMS Daly) | `voltage`, `current`, `power`, `timestamp`, `created_at` |
 | `solar_readings` | Panel solar (INA228) | `voltage`, `current`, `power`, `temperature`, `timestamp`, `created_at` |
-| `environment_readings` | Ambiente avanzado (AHT20/BMP280) | `temperature`, `humidity`, `pressure`, `heat_index`, `dew_point`, `timestamp`, `created_at` |
+| `environment_readings` | Ambiente avanzado (AHT20/BMP280) — **retirado**, sin página de dashboard | `temperature`, `humidity`, `pressure`, `heat_index`, `dew_point`, `timestamp`, `created_at` |
 | `bms_readings` | BMS Daly/JBD (histórico crudo) | `voltage`, `current`, `soc`, `cell_max_v`, `cell_min_v`, `cell_max_num`, `cell_min_num`, `temp1`, `charge_mos`, `discharge_mos`, `created_at` |
 | `inverter_readings` | Inversor híbrido (RS232) | `ac_v`, `ac_f`, `out_v`, `out_w`, `batt_v`, `batt_c`, `pv_v`, `pv_w`, `tx_count`, `rx_count`, `parse_errors`, `frames_ok`, `timestamp`, `created_at` |
 
 `dew_point` (punto de rocío) se calcula con la fórmula de Magnus si no viene en el payload, tanto en el backend (`readings`, `environment_readings`) como opcionalmente en el propio firmware.
 
-> **Nota**: `environment_readings` y sus endpoints/rutas siguen activos y en uso por `/environment.html`, pero actualmente **no hay firmware en este repositorio** que publique datos ahí (ver [FIRMWARE.md](./FIRMWARE.md)).
+> **Nota**: el sensor AHT20/BMP280 se retiró y su página del dashboard (`environment.html`) se eliminó. `environment_readings` y sus endpoints/rutas (`/api/environment*`) se dejaron intactos, sin usar, por si se retoma en el futuro — actualmente **no hay firmware en este repositorio** que publique datos ahí (ver [FIRMWARE.md](./FIRMWARE.md#módulo-retirado-sensor-aht20bmp280)).
 
 ## Referencia de la API REST
 
@@ -96,7 +96,9 @@ Todas las rutas cuelgan del servidor Express (`backend/index.js`). Formato de fe
 | GET | `/api/solar/stats?startDate=&endDate=` | Estadísticas globales, 24h y rango |
 | POST | `/api/solar` | Inserta lectura. Requiere `voltage`, `current`, `power`; `temperature` opcional. Emite `newSolarReading` |
 
-### Ambiente avanzado — `environment_readings` (AHT20/BMP280)
+### Ambiente avanzado — `environment_readings` (AHT20/BMP280, retirado)
+
+Sin página de dashboard (`environment.html` se eliminó) ni ruta que la sirviera (`GET /environment` también se quitó). Los endpoints de datos quedaron intactos, sin usar:
 
 | Método | Ruta | Descripción |
 | :--- | :--- | :--- |
@@ -104,7 +106,6 @@ Todas las rutas cuelgan del servidor Express (`backend/index.js`). Formato de fe
 | GET | `/api/environment?limit=N&startDate=&endDate=` | Histórico |
 | GET | `/api/environment/stats?startDate=&endDate=` | Estadísticas |
 | POST | `/api/environment` | Inserta lectura. Requiere `temperature`, `humidity`, `pressure`. Emite `newEnvironmentReading` |
-| GET | `/environment` | Sirve la vista `environment.html` |
 
 ### BMS Daly/JBD
 

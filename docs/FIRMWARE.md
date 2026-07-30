@@ -194,6 +194,6 @@ const char* serverName = "http://YOUR_SERVER_IP:7755/api/inverter";
 
 ---
 
-## Módulo pendiente: sensor AHT20/BMP280
+## Módulo retirado: sensor AHT20/BMP280
 
-El backend expone rutas completas para `environment_readings` (`/api/environment*`, vista `environment.html`) pensadas para un sensor **AHT20 + BMP280** de alta precisión en placa Wemos D1 Mini. La documentación original del proyecto mencionaba una carpeta `firmware_AHT20_BMP280`, pero **no existe actualmente en este repositorio**. Si vas a añadir ese firmware, sigue el mismo patrón que `firmware_BME280` mandando `POST` a `{serverName}/../api/environment` con los campos `temperature`, `humidity`, `pressure` (y opcionalmente `heat_index`, `dew_point`).
+El sensor **AHT20 + BMP280** (Wemos D1 Mini) ya no está en uso y su página del dashboard (`environment.html`) se eliminó. El backend conserva sin usar las rutas de `environment_readings` (`/api/environment*`) por si se retoma en el futuro — no hay firmware para este sensor en el repositorio, ni lo hubo nunca (la documentación original del proyecto mencionaba una carpeta `firmware_AHT20_BMP280` que tampoco llegó a existir aquí). Si se reactiva este sensor, sigue el mismo patrón que `firmware_BME280` mandando `POST` a `{serverName}/../api/environment` con los campos `temperature`, `humidity`, `pressure` (y opcionalmente `heat_index`, `dew_point`), y vuelve a agregar la página al dashboard y su entrada en `DASHBOARD_PAGES` (`backend/public/js/dashboard-common.js`).

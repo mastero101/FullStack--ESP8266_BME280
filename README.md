@@ -51,7 +51,7 @@ Cada subcarpeta corresponde a un equipo diferente con un propósito único.
 6.  **ESP32_Inverter_Monitor**: Lector Serial MAX3232 para extraer datos internos de inversores híbridos vía comunicación RS232.
 7.  **firmware_display_oled**: Pantalla oled "Hub" para mostrar la información ya recabada de sensores dentro de la misma red local.
 
-> No incluido actualmente en el repositorio: un firmware para el sensor AHT20+BMP280 (el backend ya expone los endpoints `/api/environment*` para él). Detalles en [docs/FIRMWARE.md](./docs/FIRMWARE.md#módulo-pendiente-sensor-aht20bmp280).
+> El sensor AHT20+BMP280 (Ambiental) ya no está en uso — se retiró la página del dashboard. El backend conserva los endpoints `/api/environment*` sin usar por si se retoma en el futuro. Detalles en [docs/FIRMWARE.md](./docs/FIRMWARE.md#módulo-retirado-sensor-aht20bmp280).
 
 ### Compilación y Carga en tu Microcontrolador
 
@@ -71,10 +71,10 @@ Cada subcarpeta corresponde a un equipo diferente con un propósito único.
 Ingresando desde el navegador al servidor backend:
 
 - **Inicio / Clima (`/index.html`)**: General, métrica histórica de BME280.
-- **Ambiental Avanzado (`/environment.html`)**: Medidas AHT20 + BMP280, con cálculo dinámico de Sensación térmica e Índice de punto de Rocío (Dew point).
 - **Salud de Baterías (`/battery.html`)**: Evaluación INA226 y/o BMS Daly (voltaje, SOC, celdas) con métricas estimativas de autonomía.
-- **Producción Solar (`/solar.html`)**: Rendimiento fotovoltaico y métrica con sensor moderno INA228.
 - **Inversor (`/inverter.html`)**: Mapeo a nivel de red interna del inversor híbrido conectado por RS232.
+
+> **Producción Solar (`/solar.html`)** sigue existiendo pero se ocultó temporalmente de la navegación — el sensor INA228 está desconectado. Sigue accesible entrando directo a la URL; para reactivarla en el menú, agrega su entrada de nuevo en `DASHBOARD_PAGES` dentro de `backend/public/js/dashboard-common.js`.
 - **Modo Kiosco (`/kiosk`, `/kiosk-battery`, `/kiosk-solar`)**: Paneles fijos sin navegación, pensados para pantallas dedicadas.
 
 ---

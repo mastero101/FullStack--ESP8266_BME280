@@ -1,12 +1,14 @@
-// Compartido entre los 5 dashboards (index, battery, solar, environment, inverter).
+// Compartido entre los dashboards activos (index, battery, inverter).
 // Navegacion (desktop + movil) generada desde una sola lista, y el badge de
 // estado del sensor/sistema. Ver docs/FRONTEND_IMPROVEMENT_PLAN.md.
-
+//
+// "Ambiental (AHT20)" se quito de la lista y su pagina (environment.html) se
+// borro: el sensor AHT20 ya no esta en uso. "Solar" se quito de la lista pero
+// solar.html y su API se dejaron intactos -- el sensor esta desconectado por
+// ahora, no removido; reactivar es solo volver a agregar la entrada aqui.
 const DASHBOARD_PAGES = [
     { href: '/',                  label: 'BME280 (Clima)',    shortLabel: 'Clima' },
-    { href: '/environment.html',  label: 'Ambiental (AHT20)', shortLabel: 'Ambiente' },
     { href: '/battery.html',      label: 'Batería',           shortLabel: 'Batería' },
-    { href: '/solar.html',        label: 'Solar',              shortLabel: 'Solar' },
     { href: '/inverter',          label: 'Inversor',           shortLabel: 'Inversor' }
 ];
 

@@ -7,12 +7,15 @@ Aplicación estática servida por Express desde `backend/public` (`express.stati
 | Ruta | Archivo | Contenido |
 | :--- | :--- | :--- |
 | `/` o `/index.html` | `index.html` | Clima general (histórico BME280) |
-| `/environment` o `/environment.html` | `environment.html` | Ambiente avanzado (AHT20 + BMP280): sensación térmica y punto de rocío calculados dinámicamente |
 | `/battery.html` | `battery.html` | Salud de batería (INA226 y/o BMS Daly), autonomía estimada |
-| `/solar.html` | `solar.html` | Producción fotovoltaica (INA228) |
+| `/solar.html` | `solar.html` | Producción fotovoltaica (INA228) — **oculta del menú de navegación** (sensor desconectado por ahora), sigue accesible por URL directa |
 | `/inverter` o `/inverter.html` | `inverter.html` | Datos del inversor híbrido (RS232) |
 
-> `/environment` e `/inverter` están servidas explícitamente por rutas de Express (`app.get('/environment', ...)`, `app.get('/inverter', ...)`); el resto de páginas `.html` se sirven automáticamente por `express.static`. No existe un `bms.html` independiente: los datos del BMS Daly/JBD (voltaje, SOC, celdas, control de MOSFETs) se muestran integrados dentro de `battery.html`, ya que el backend replica cada lectura de `/bms` también en `battery_readings` (ver [BACKEND.md](./BACKEND.md#bms-dalyjbd)).
+> `/inverter` está servida explícitamente por una ruta de Express (`app.get('/inverter', ...)`); el resto de páginas `.html` se sirven automáticamente por `express.static`. No existe un `bms.html` independiente: los datos del BMS Daly/JBD (voltaje, SOC, celdas, control de MOSFETs) se muestran integrados dentro de `battery.html`, ya que el backend replica cada lectura de `/bms` también en `battery_readings` (ver [BACKEND.md](./BACKEND.md#bms-dalyjbd)).
+>
+> **`environment.html` (Ambiental AHT20) se eliminó** — el sensor ya no está en uso. El backend conserva sin usar los endpoints `/api/environment*` y la tabla `environment_readings` por si se retoma en el futuro (ver [FIRMWARE.md](./FIRMWARE.md#módulo-retirado-sensor-aht20bmp280)).
+>
+> La navegación (desktop y móvil) de las páginas activas se genera desde una sola lista en `backend/public/js/dashboard-common.js` (`DASHBOARD_PAGES`) — agregar o quitar una sección del menú es editar esa lista, no cada página por separado.
 
 ## Modo kiosco
 

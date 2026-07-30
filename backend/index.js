@@ -78,10 +78,6 @@ app.get('/kiosk-solar', (req, res) => {
     res.sendFile(__dirname + '/public/kiosk-solar.html');
 });
 
-app.get('/environment', (req, res) => {
-    res.sendFile(__dirname + '/public/environment.html');
-});
-
 app.get('/inverter', (req, res) => {
     res.sendFile(__dirname + '/public/inverter.html');
 });
