@@ -4,9 +4,28 @@ const bodyParser = require('body-parser');
 const http = require('http');
 const { Server } = require('socket.io');
 const db = require('./db');
+const client = require('prom-client');
 require('dotenv').config();
 
 const app = express();
+
+const register = new client.Registry();
+client.collectDefaultMetrics({ register });
+
+const httpRequestDuration = new client.Histogram({
+    name: 'http_request_duration_seconds',
+    help: 'Duracion de requests HTTP en segundos',
+    labelNames: ['method', 'route', 'status_code'],
+    buckets: [0.01, 0.05, 0.1, 0.3, 0.5, 1, 2, 5]
+});
+register.registerMetric(httpRequestDuration);
+
+const lastReadingAgeSeconds = new client.Gauge({
+    name: 'sensor_last_reading_age_seconds',
+    help: 'Segundos desde la ultima lectura guardada, por tabla',
+    labelNames: ['table']
+});
+register.registerMetric(lastReadingAgeSeconds);
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
@@ -19,11 +38,25 @@ const port = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(bodyParser.json());
+
+app.use((req, res, next) => {
+    const end = httpRequestDuration.startTimer();
+    res.on('finish', () => {
+        end({ method: req.method, route: req.route ? req.route.path : req.path, status_code: res.statusCode });
+    });
+    next();
+});
+
 app.use(express.static('public'));
 
 // Configurations API
 app.get('/api/config/bms-pin', (req, res) => {
     res.json({ pin: process.env.BMS_PIN || "000000" });
+});
+
+app.get('/metrics', async (req, res) => {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
 });
 
 // Initialize Database
@@ -945,6 +978,21 @@ io.on('connection', (socket) => {
     });
 });
 
+async function updateReadingAgeMetrics() {
+    const tables = ['readings', 'battery_readings', 'solar_readings', 'environment_readings', 'bms_readings', 'inverter_readings'];
+    for (const table of tables) {
+        try {
+            const result = await db.query(`SELECT EXTRACT(EPOCH FROM (NOW() - MAX(created_at))) AS age FROM ${table}`);
+            const age = result.rows[0]?.age;
+            if (age !== null && age !== undefined) {
+                lastReadingAgeSeconds.set({ table }, Number(age));
+            }
+        } catch (err) {
+            console.error(`[METRICS] Error consultando ${table}`, err);
+        }
+    }
+}
+
 if (require.main === module) {
     server.listen(port, () => {
         console.log(`Backend running on http://localhost:${port}`);
@@ -962,6 +1010,9 @@ if (require.main === module) {
             console.error("[LIMPIEZA ERROR]", err);
         }
     }, 3600000); // 1 Hour
+
+    updateReadingAgeMetrics();
+    setInterval(updateReadingAgeMetrics, 60000);
 }
 
 module.exports = { app, server };
