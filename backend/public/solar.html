@@ -299,10 +299,11 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="volt-val">--</span><span class="card-unit">V</span>
+                        <span id="volt-val" class="skeleton">--</span><span class="card-unit">V</span>
                     </div>
                     <span id="volt-trend" class="trend-badge"></span>
                 </div>
+                <div class="card-sparkline" id="volt-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item">Min: <b id="volt-min">--</b></div>
                     <div class="stat-item">Max: <b id="volt-max">--</b></div>
@@ -314,10 +315,11 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="curr-val">--</span><span class="card-unit">A</span>
+                        <span id="curr-val" class="skeleton">--</span><span class="card-unit">A</span>
                     </div>
                     <span id="curr-trend" class="trend-badge"></span>
                 </div>
+                <div class="card-sparkline" id="curr-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item">Min: <b id="curr-min">--</b></div>
                     <div class="stat-item">Max: <b id="curr-max">--</b></div>
@@ -329,10 +331,11 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="pow-val">--</span><span class="card-unit">W</span>
+                        <span id="pow-val" class="skeleton">--</span><span class="card-unit">W</span>
                     </div>
                     <span id="pow-trend" class="trend-badge"></span>
                 </div>
+                <div class="card-sparkline" id="pow-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item">Min: <b id="pow-min">--</b></div>
                     <div class="stat-item">Max: <b id="pow-max">--</b></div>
@@ -344,10 +347,11 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="pct-val">--</span><span class="card-unit">W</span>
+                        <span id="pct-val" class="skeleton">--</span><span class="card-unit">W</span>
                     </div>
                     <span id="pct-trend" class="trend-badge"></span>
                 </div>
+                <div class="card-sparkline" id="pct-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item" style="color: var(--text-muted); font-size: 0.70rem;">Generación Estimada</div>
                 </div>
@@ -358,10 +362,11 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="sensor-temp-val">--</span><span class="card-unit">°C</span>
+                        <span id="sensor-temp-val" class="skeleton">--</span><span class="card-unit">°C</span>
                     </div>
                     <span id="sensor-temp-trend" class="trend-badge"></span>
                 </div>
+                <div class="card-sparkline" id="sensor-temp-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item" style="color: var(--text-muted); font-size: 0.70rem;">INA228 Integrado</div>
                 </div>
@@ -412,6 +417,8 @@
             </div>
         </div>
     </div>
+
+    <div id="toast-container" class="toast-container"></div>
 
     <script>
         // Initialize Lucide Icons
@@ -686,13 +693,17 @@
                         ? previousReadings.reduce((sum, r) => sum + r.power, 0) / previousReadings.length 
                         : latest.power;
 
-                    document.getElementById('volt-val').innerText = latest.voltage.toFixed(1);
-                    document.getElementById('curr-val').innerText = (latest.current / 1000.0).toFixed(2);
-                    document.getElementById('pow-val').innerText = (latest.power / 1000.0).toFixed(1);
-                    
-                    const estimatedW = calculateSolarEstimatedWatts(latest.voltage);
-                    document.getElementById('pct-val').innerText = estimatedW.toFixed(0);
+                    animateValue(document.getElementById('volt-val'), latest.voltage, 1);
+                    animateValue(document.getElementById('curr-val'), latest.current / 1000.0, 2);
+                    animateValue(document.getElementById('pow-val'), latest.power / 1000.0, 1);
 
+                    const estimatedW = calculateSolarEstimatedWatts(latest.voltage);
+                    animateValue(document.getElementById('pct-val'), estimatedW, 0);
+                    renderSparkline(document.getElementById('pct-spark'), (window.currentData || []).map(r => calculateSolarEstimatedWatts(r.voltage)), '#fbbf24');
+
+                    renderSparkline(document.getElementById('volt-spark'), (window.currentData || []).map(r => r.voltage), '#fbbf24');
+                    renderSparkline(document.getElementById('curr-spark'), (window.currentData || []).map(r => r.current), '#60a5fa');
+                    renderSparkline(document.getElementById('pow-spark'), (window.currentData || []).map(r => r.power), '#34d399');
 
                     // Tendencias basadas en promedios
                     updateTrend('volt', latest.voltage, avgPrevTemp);
@@ -701,7 +712,8 @@
 
                     // Temperatura del sensor INA228
                     if (latest.temperature !== null && latest.temperature !== undefined) {
-                        document.getElementById('sensor-temp-val').innerText = latest.temperature.toFixed(1);
+                        animateValue(document.getElementById('sensor-temp-val'), latest.temperature, 1);
+                        renderSparkline(document.getElementById('sensor-temp-spark'), (window.currentData || []).map(r => r.temperature), '#f97316');
                         const avgPrevSensorTemp = previousReadings.length > 0 && previousReadings[0].temperature !== null
                             ? previousReadings.filter(r => r.temperature !== null).reduce((sum, r) => sum + r.temperature, 0) / previousReadings.filter(r => r.temperature !== null).length
                             : latest.temperature;
@@ -982,6 +994,7 @@
             
             toggleSettings();
             updateLatestCards(); // Aplicar inmediatamente
+            showToast('Ajustes guardados', 'success');
         }
 
         function updateMinMaxStats(readings) {
@@ -1038,25 +1051,29 @@
 
             }
 
-            document.getElementById('volt-val').innerText = data.voltage.toFixed(1);
-            document.getElementById('curr-val').innerText = (data.current / 1000.0).toFixed(2);
-            document.getElementById('pow-val').innerText = (data.power / 1000.0).toFixed(1);
-            
+            animateValue(document.getElementById('volt-val'), data.voltage, 1);
+            animateValue(document.getElementById('curr-val'), data.current / 1000.0, 2);
+            animateValue(document.getElementById('pow-val'), data.power / 1000.0, 1);
+
             const estimatedWatts = calculateSolarEstimatedWatts(data.voltage);
-            document.getElementById('pct-val').innerText = estimatedWatts.toFixed(0);
+            animateValue(document.getElementById('pct-val'), estimatedWatts, 0);
+            renderSparkline(document.getElementById('pct-spark'), (window.currentData || []).map(r => calculateSolarEstimatedWatts(r.voltage)), '#fbbf24');
 
             // Temperatura del sensor INA228
             if (data.temperature !== null && data.temperature !== undefined) {
-                document.getElementById('sensor-temp-val').innerText = data.temperature.toFixed(1);
+                animateValue(document.getElementById('sensor-temp-val'), data.temperature, 1);
             }
 
-            
-            
             // Re-calcular Min/Max si es tiempo real
             if (!document.getElementById('start-date').value && window.currentData) {
                 window.currentData.push(data);
                 if (window.currentData.length > 144) window.currentData.shift();
                 updateMinMaxStats(window.currentData);
+
+                renderSparkline(document.getElementById('volt-spark'), window.currentData.map(r => r.voltage), '#fbbf24');
+                renderSparkline(document.getElementById('curr-spark'), window.currentData.map(r => r.current), '#60a5fa');
+                renderSparkline(document.getElementById('pow-spark'), window.currentData.map(r => r.power), '#34d399');
+                renderSparkline(document.getElementById('sensor-temp-spark'), window.currentData.map(r => r.temperature), '#f97316');
             }
 
             // Alertas Batería (Dinámico - Independiente del BME280)
