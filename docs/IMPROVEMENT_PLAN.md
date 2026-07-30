@@ -17,9 +17,15 @@
 
 ---
 
-## Fase 0 — Ya resuelto
+## Estado (actualizado)
 
-✅ **`npm audit fix` aplicado** (commit `a8a0c70`): las 7 vulnerabilidades que el propio job `validate` venía reportando sin que nadie las atendiera (1 baja, 2 moderadas, 4 altas) quedaron en 0. Verificado que el backend sigue arrancando igual con las dependencias actualizadas.
+✅ **Fase 0** — `npm audit fix` (commit `a8a0c70`), 0 vulnerabilidades.
+✅ **Fase 1** — `index.js` importable + tests con `supertest` (commits `34751f2`, `35d3c3a`). 6/6 pasando localmente contra Postgres real.
+✅ **Fase 2** — `validate` corre los tests contra un Postgres real de servicio + smoke test post-deploy (commit `dd54b40`).
+⏭️ **Fase 3 (CI de firmware)** — **omitida a propósito**: el usuario pidió no tocar nada relacionado a firmware en esta sesión ("es complicado reflashear controladores"). El plan de la Fase 3 sigue abajo por si se retoma más adelante.
+✅ **Fase 4** — endpoint `/metrics` con `prom-client` (commit `ee4e115`). Verificado en navegador: formato Prometheus válido, datos reales de las 6 tablas. Falta el paso manual de conectar Prometheus (Tarea 4.2, requiere SSH).
+✅ **Fase 5** — script de backup creado y verificado (commit `63b94d2`). Falta activar el timer de systemd en el servidor (Tarea 5.2, requiere SSH).
+✅ **Fase 6** — job de retención configurable (commit `e333761`), query verificada contra Postgres real.
 
 ---
 
