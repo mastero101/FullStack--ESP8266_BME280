@@ -352,10 +352,11 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="temp-val">--</span><span class="card-unit">°C</span>
+                        <span id="temp-val" class="skeleton">--</span><span class="card-unit">°C</span>
                     </div>
                     <span id="temp-trend" class="trend-badge"></span>
                 </div>
+                <div class="card-sparkline" id="temp-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item">Min: <b id="temp-min">--</b></div>
                     <div class="stat-item">Max: <b id="temp-max">--</b></div>
@@ -367,10 +368,11 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="hum-val">--</span><span class="card-unit">%</span>
+                        <span id="hum-val" class="skeleton">--</span><span class="card-unit">%</span>
                     </div>
                     <span id="hum-trend" class="trend-badge"></span>
                 </div>
+                <div class="card-sparkline" id="hum-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item">Min: <b id="hum-min">--</b></div>
                     <div class="stat-item">Max: <b id="hum-max">--</b></div>
@@ -382,10 +384,11 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="pres-val">--</span><span class="card-unit">hPa</span>
+                        <span id="pres-val" class="skeleton">--</span><span class="card-unit">hPa</span>
                     </div>
                     <span id="pres-trend" class="trend-badge"></span>
                 </div>
+                <div class="card-sparkline" id="pres-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item">Min: <b id="pres-min">--</b></div>
                     <div class="stat-item">Max: <b id="pres-max">--</b></div>
@@ -397,9 +400,10 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="hi-val">--</span><span class="card-unit">°C</span>
+                        <span id="hi-val" class="skeleton">--</span><span class="card-unit">°C</span>
                     </div>
                 </div>
+                <div class="card-sparkline" id="hi-spark"></div>
                 <div class="sub-stats" style="opacity: 0; pointer-events: none;">
                     <div>&nbsp;</div>
                 </div>
@@ -410,10 +414,11 @@
                 </div>
                 <div class="card-body">
                     <div class="card-value">
-                        <span id="dp-val">--</span><span class="card-unit">°C</span>
+                        <span id="dp-val" class="skeleton">--</span><span class="card-unit">°C</span>
                     </div>
                     <span id="dp-trend" class="trend-badge"></span>
                 </div>
+                <div class="card-sparkline" id="dp-spark"></div>
                 <div class="sub-stats">
                     <div class="stat-item">Min: <b id="dp-min">--</b></div>
                     <div class="stat-item">Max: <b id="dp-max">--</b></div>
@@ -479,6 +484,8 @@
             </div>
         </div>
     </div>
+
+    <div id="toast-container" class="toast-container"></div>
 
     <script>
         // Initialize Lucide Icons
@@ -756,10 +763,15 @@
                         ? previousReadings.reduce((sum, r) => sum + r.pressure, 0) / previousReadings.length 
                         : latest.pressure;
 
-                    document.getElementById('temp-val').innerText = latest.temperature.toFixed(1);
-                    document.getElementById('hum-val').innerText = latest.humidity.toFixed(1);
-                    document.getElementById('pres-val').innerText = latest.pressure.toFixed(0);
-                    document.getElementById('hi-val').innerText = latest.heat_index.toFixed(1);
+                    animateValue(document.getElementById('temp-val'), latest.temperature, 1);
+                    animateValue(document.getElementById('hum-val'), latest.humidity, 1);
+                    animateValue(document.getElementById('pres-val'), latest.pressure, 0);
+                    animateValue(document.getElementById('hi-val'), latest.heat_index, 1);
+
+                    renderSparkline(document.getElementById('temp-spark'), (window.currentData || []).map(r => r.temperature), '#f87171');
+                    renderSparkline(document.getElementById('hum-spark'), (window.currentData || []).map(r => r.humidity), '#60a5fa');
+                    renderSparkline(document.getElementById('pres-spark'), (window.currentData || []).map(r => r.pressure), '#34d399');
+                    renderSparkline(document.getElementById('hi-spark'), (window.currentData || []).map(r => r.heat_index), '#fbbf24');
 
                     // Tendencias basadas en promedios
                     updateTrend('temp', latest.temperature, avgPrevTemp);
@@ -773,7 +785,7 @@
                         const alpha = Math.log(latest.humidity / 100) + (a * latest.temperature) / (b + latest.temperature);
                         dewPoint = (b * alpha) / (a - alpha);
                     }
-                    document.getElementById('dp-val').innerText = dewPoint.toFixed(1);
+                    animateValue(document.getElementById('dp-val'), dewPoint, 1);
 
                     const getDp = (r) => {
                         if (r.dew_point !== undefined && r.dew_point !== null) return r.dew_point;
@@ -781,6 +793,8 @@
                         const alpha = Math.log(r.humidity / 100) + (a * r.temperature) / (b + r.temperature);
                         return (b * alpha) / (a - alpha);
                     };
+
+                    renderSparkline(document.getElementById('dp-spark'), (window.currentData || []).map(getDp), '#6366f1');
 
                     const avgPrevDp = previousReadings.length > 0
                         ? previousReadings.reduce((sum, r) => sum + getDp(r), 0) / previousReadings.length 
@@ -1053,6 +1067,7 @@
             
             toggleSettings();
             updateLatestCards(); // Aplicar inmediatamente
+            showToast('Ajustes guardados', 'success');
         }
 
         function updateMinMaxStats(readings) {
@@ -1123,10 +1138,10 @@
                 updateTrend('dp', currentDp, avgDp);
             }
 
-            document.getElementById('temp-val').innerText = data.temperature.toFixed(1);
-            document.getElementById('hum-val').innerText = data.humidity.toFixed(1);
-            document.getElementById('pres-val').innerText = data.pressure.toFixed(0);
-            document.getElementById('hi-val').innerText = data.heat_index.toFixed(1);
+            animateValue(document.getElementById('temp-val'), data.temperature, 1);
+            animateValue(document.getElementById('hum-val'), data.humidity, 1);
+            animateValue(document.getElementById('pres-val'), data.pressure, 0);
+            animateValue(document.getElementById('hi-val'), data.heat_index, 1);
             let dewPoint = data.dew_point;
             if (dewPoint === undefined || dewPoint === null) {
                 // Fallback calculation in frontend
@@ -1135,13 +1150,19 @@
                 const alpha = Math.log(data.humidity / 100) + (a * data.temperature) / (b + data.temperature);
                 dewPoint = (b * alpha) / (a - alpha);
             }
-            document.getElementById('dp-val').innerText = dewPoint.toFixed(1);
-            
+            animateValue(document.getElementById('dp-val'), dewPoint, 1);
+
             // Re-calcular Min/Max si es tiempo real
             if (!document.getElementById('start-date').value && window.currentData) {
                 window.currentData.push(data);
                 if (window.currentData.length > 144) window.currentData.shift();
                 updateMinMaxStats(window.currentData);
+
+                renderSparkline(document.getElementById('temp-spark'), window.currentData.map(r => r.temperature), '#f87171');
+                renderSparkline(document.getElementById('hum-spark'), window.currentData.map(r => r.humidity), '#60a5fa');
+                renderSparkline(document.getElementById('pres-spark'), window.currentData.map(r => r.pressure), '#34d399');
+                renderSparkline(document.getElementById('hi-spark'), window.currentData.map(r => r.heat_index), '#fbbf24');
+                renderSparkline(document.getElementById('dp-spark'), window.currentData.map(getDp), '#6366f1');
             }
 
             // Alertas Críticas (Dinámico)
