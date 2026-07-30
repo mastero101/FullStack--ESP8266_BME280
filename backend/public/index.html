@@ -1205,15 +1205,15 @@
             }
         });
 
-        socket.on('newInverterReading', (data) => {
-            console.log('Inverter Update recibido:', data);
+        function updateInverterCard(data) {
+            if (!data || !data.created_at) return;
             document.getElementById('inv-out-w').innerText = data.out_w;
             document.getElementById('inv-ac-v').innerText = data.ac_v;
             document.getElementById('inv-out-v').innerText = data.out_v;
-            
+
             const badge = document.getElementById('inv-status-badge');
             const diffMin = (Date.now() - new Date(data.created_at).getTime()) / 60000;
-            
+
             if (diffMin < 2) {
                 badge.innerText = data.out_w > 0 ? 'Cargando' : 'Standby';
                 badge.style.background = 'rgba(16, 185, 129, 0.1)';
@@ -1223,6 +1223,21 @@
                 badge.style.background = 'rgba(239, 68, 68, 0.1)';
                 badge.style.color = '#ef4444';
             }
+        }
+
+        async function loadInverterSummary() {
+            try {
+                const response = await fetch('/api/inverter/latest');
+                const data = await response.json();
+                updateInverterCard(data);
+            } catch (err) {
+                console.error('Error cargando resumen del inversor:', err);
+            }
+        }
+
+        socket.on('newInverterReading', (data) => {
+            console.log('Inverter Update recibido:', data);
+            updateInverterCard(data);
         });
 
         function setQuickRange(range, btn) {
@@ -1393,15 +1408,17 @@
 
         initChart();
         fetchReadings();
-        // El polling ya no es necesario gracias a Socket.io, 
+        loadInverterSummary();
+        // El polling ya no es necesario gracias a Socket.io,
         // pero mantenemos una verificación de estado cada 1 min por si acaso
         setInterval(() => {
             if (globalLastReadingTime) {
                 updateStatusBadge(globalLastReadingTime, { label: 'Sensor' });
             }
         }, 30000); // Cada 30 segundos verificar salud
-        
+
         setInterval(updateLatestCards, 60000);
+        setInterval(loadInverterSummary, 60000);
 
         initNav('/', 'Clima');
 
