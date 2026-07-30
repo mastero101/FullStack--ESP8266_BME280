@@ -13,6 +13,7 @@
 | [DASHBOARD.md](./DASHBOARD.md) | Vistas del dashboard web, modo kiosco y personalización |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Puesta en producción (PM2), acceso remoto (Cloudflare Tunnel) y seguridad de credenciales |
 | [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md) | Plan de implementación priorizado: testing, CI/CD y observabilidad |
+| [FRONTEND_IMPROVEMENT_PLAN.md](./FRONTEND_IMPROVEMENT_PLAN.md) | Plan de implementación del frontend: navegación centralizada y JS/CSS compartido entre dashboards |
 
 ## Resumen del proyecto
 
