@@ -1209,9 +1209,9 @@
 
         function updateInverterCard(data) {
             if (!data || !data.created_at) return;
-            document.getElementById('inv-out-w').innerText = data.out_w;
-            document.getElementById('inv-ac-v').innerText = data.ac_v;
-            document.getElementById('inv-out-v').innerText = data.out_v;
+            document.getElementById('inv-out-w').innerText = Number(data.out_w || 0).toFixed(0);
+            document.getElementById('inv-ac-v').innerText = Number(data.ac_v || 0).toFixed(0);
+            document.getElementById('inv-out-v').innerText = Number(data.out_v || 0).toFixed(1);
 
             const badge = document.getElementById('inv-status-badge');
             const diffMin = (Date.now() - new Date(data.created_at).getTime()) / 60000;
