@@ -1080,12 +1080,30 @@ canvas {
     font-weight: 600;
     letter-spacing: 0.02em;
     color: var(--text-muted);
+    text-decoration: none;
+    padding: 0.2rem 0.5rem;
+    border-radius: 8px;
+    transition: all 0.2s;
 }
 
 .strip-item .dot {
     width: 7px;
     height: 7px;
     flex-shrink: 0;
+}
+
+a.strip-item {
+    cursor: pointer;
+}
+
+a.strip-item:hover,
+a.strip-item:focus-visible {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.strip-item.current {
+    color: var(--text);
 }
 
 @media (max-width: 640px) {

@@ -100,9 +100,9 @@ function updateStatusBadge(createdAt, options) {
 // seccion. Requiere <div id="system-strip" class="system-strip"></div> una
 // vez en el <body>.
 const SYSTEM_SOURCES = [
-    { key: 'clima',    label: 'Clima',    endpoint: '/api/readings/latest' },
-    { key: 'bateria',  label: 'Batería',  endpoint: '/api/battery/latest' },
-    { key: 'inversor', label: 'Inversor', endpoint: '/api/inverter/latest' }
+    { key: 'clima',    label: 'Clima',    endpoint: '/api/readings/latest', href: '/' },
+    { key: 'bateria',  label: 'Batería',  endpoint: '/api/battery/latest',  href: '/battery.html' },
+    { key: 'inversor', label: 'Inversor', endpoint: '/api/inverter/latest', href: '/inverter' }
 ];
 
 function statusFromCreatedAt(createdAt) {
@@ -118,11 +118,18 @@ async function initSystemStrip() {
     const container = document.getElementById('system-strip');
     if (!container) return;
 
-    container.innerHTML = SYSTEM_SOURCES.map(s => `
-        <span class="strip-item" data-key="${s.key}">
+    const currentPath = window.location.pathname;
+    const isCurrent = (href) => currentPath === href || (href === '/' && currentPath === '/index.html');
+
+    container.innerHTML = SYSTEM_SOURCES.map(s => {
+        const current = isCurrent(s.href);
+        const tag = current ? 'span' : 'a';
+        const attrs = current ? 'aria-current="page"' : `href="${s.href}"`;
+        return `
+        <${tag} class="strip-item${current ? ' current' : ''}" data-key="${s.key}" ${attrs}>
             <span class="dot" id="strip-dot-${s.key}"></span>${s.label}
-        </span>
-    `).join('');
+        </${tag}>`;
+    }).join('');
 
     const results = await Promise.allSettled(
         SYSTEM_SOURCES.map(s => fetch(s.endpoint).then(r => r.json()))
