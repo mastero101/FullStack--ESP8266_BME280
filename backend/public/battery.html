@@ -124,7 +124,7 @@
     </style>
 </head>
 
-<body>
+<body class="theme-bateria">
     <!-- Modal de Ajustes Batería (Independiente del BME280) -->
     <div id="settings-modal" class="modal">
         <div class="modal-content">
@@ -609,14 +609,16 @@
             </div>
         </header>
 
-        <!-- Seccion INA226 desactivada temporalmente 
+        <div class="system-strip" id="system-strip"></div>
+
+        <!-- Seccion INA226 desactivada temporalmente
         <div class="grid">
             <div class="card" id="volt-card"> ... </div>
         </div>
         -->
 
-        <h2 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.8rem; font-size: 1.5rem; justify-content: center; background: linear-gradient(to right, #60a5fa, #34d399); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
-            <i data-lucide="bluetooth" style="stroke: #60a5fa;"></i> Daly BMS (BLE Bridge)
+        <h2 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.8rem; font-size: 1.5rem; justify-content: center; background: linear-gradient(to right, var(--gradient-a), var(--gradient-b)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
+            <i data-lucide="bluetooth" style="stroke: var(--gradient-a);"></i> Daly BMS (BLE Bridge)
         </h2>
 
         <div class="grid" id="bms-grid">
@@ -1941,6 +1943,8 @@
         setInterval(updateLatestCards, 60000);
 
         initNav('/battery.html', 'Batería');
+        initSystemStrip();
+        setInterval(initSystemStrip, 30000);
 
         // Initialize Lucide icons
         lucide.createIcons();

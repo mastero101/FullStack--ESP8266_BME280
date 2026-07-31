@@ -20,7 +20,7 @@
     </style>
 </head>
 
-<body>
+<body class="theme-solar">
     <!-- Modal de Ajustes Solar (Independiente) -->
     <div id="settings-modal" class="modal">
         <div class="modal-content">
@@ -290,6 +290,8 @@
                 </button>
             </div>
         </header>
+
+        <div class="system-strip" id="system-strip"></div>
 
         <div class="grid">
 
@@ -1295,6 +1297,8 @@
         setInterval(updateLatestCards, 60000);
 
         initNav('/solar.html', 'Solar');
+        initSystemStrip();
+        setInterval(initSystemStrip, 30000);
 
         // Initialize Lucide icons
         lucide.createIcons();

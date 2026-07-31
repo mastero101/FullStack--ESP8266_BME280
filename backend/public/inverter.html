@@ -38,7 +38,7 @@
         }
     </style>
 </head>
-<body class="dark-theme">
+<body class="dark-theme theme-inversor">
     <!-- Modal de Ajustes Inversor -->
     <div id="settings-modal" class="modal">
         <div class="modal-content">
@@ -325,6 +325,8 @@
                 </button>
             </div>
         </header>
+
+        <div class="system-strip" id="system-strip"></div>
 
         <div class="grid">
             <!-- SOLAR -->
@@ -822,6 +824,8 @@
         }, 30000);
 
         initNav('/inverter', 'Inversor');
+        initSystemStrip();
+        setInterval(initSystemStrip, 30000);
 
         function toggleStats() {
             const modal = document.getElementById('stats-modal');

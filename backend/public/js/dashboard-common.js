@@ -95,6 +95,48 @@ function updateStatusBadge(createdAt, options) {
     }
 }
 
+// --- Franja de estado del sistema ---
+// Muestra si clima/batería/inversor están online, aunque estés viendo otra
+// seccion. Requiere <div id="system-strip" class="system-strip"></div> una
+// vez en el <body>.
+const SYSTEM_SOURCES = [
+    { key: 'clima',    label: 'Clima',    endpoint: '/api/readings/latest' },
+    { key: 'bateria',  label: 'Batería',  endpoint: '/api/battery/latest' },
+    { key: 'inversor', label: 'Inversor', endpoint: '/api/inverter/latest' }
+];
+
+function statusFromCreatedAt(createdAt) {
+    if (!createdAt) return 'offline';
+    const dateStr = createdAt.includes('Z') || createdAt.includes('+') ? createdAt : createdAt.replace(' ', 'T') + 'Z';
+    const diffMin = (Date.now() - new Date(dateStr).getTime()) / 60000;
+    if (diffMin < 2) return 'online';
+    if (diffMin < 10) return 'delayed';
+    return 'offline';
+}
+
+async function initSystemStrip() {
+    const container = document.getElementById('system-strip');
+    if (!container) return;
+
+    container.innerHTML = SYSTEM_SOURCES.map(s => `
+        <span class="strip-item" data-key="${s.key}">
+            <span class="dot" id="strip-dot-${s.key}"></span>${s.label}
+        </span>
+    `).join('');
+
+    const results = await Promise.allSettled(
+        SYSTEM_SOURCES.map(s => fetch(s.endpoint).then(r => r.json()))
+    );
+
+    results.forEach((res, i) => {
+        const dot = document.getElementById(`strip-dot-${SYSTEM_SOURCES[i].key}`);
+        if (!dot) return;
+        const data = res.status === 'fulfilled' ? res.value : null;
+        dot.classList.remove('online', 'delayed', 'offline');
+        dot.classList.add(statusFromCreatedAt(data && data.created_at));
+    });
+}
+
 // --- Toast notifications ---
 // Cada pagina necesita <div id="toast-container" class="toast-container"></div>
 // una sola vez en el <body>.

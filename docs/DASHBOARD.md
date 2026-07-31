@@ -39,3 +39,20 @@ Las vistas de batería/BMS permiten activar o desactivar los MOSFETs de carga/de
 
 - **Alertas**: ícono ⚙️ en el dashboard para configurar umbrales de temperatura/humedad, guardados en `localStorage` del navegador (no persisten en el backend).
 - **Gráficos**: clic en los elementos de la leyenda para mostrar/ocultar series individuales. Filtros de rango de 1 hora, 1 día o 7 días, con *downsampling* automático (promedios por hora) en el backend para consultas largas.
+
+## Sistema de diseño
+
+Tokens de color en `:root` de `style.css` (`--primary`, `--secondary`, `--gradient-a/b`, `--background`, `--card-bg`, `--text`, `--text-muted`, `--success`, `--warning`). `--success`/`--warning`/`--secondary` son semánticos (online/delayed/offline, alertas críticas) y no cambian entre páginas.
+
+**Identidad por sección**: cada dashboard monitorea un sistema físico distinto, así que `--primary`/`--secondary`/`--gradient-a/b` se redefinen por página agregando una clase al `<body>` — esto colorea automáticamente el título, la pestaña de navegación activa, los botones principales, los chips de rango y el anillo de foco de los inputs, sin tocar el resto de la hoja de estilos:
+
+| Página | Clase en `<body>` | Acento |
+| :--- | :--- | :--- |
+| `index.html` (Clima) | *(ninguna, usa los valores por defecto)* | Índigo → Rosa |
+| `battery.html` | `theme-bateria` | Celeste → Verde azulado |
+| `inverter.html` | `theme-inversor` | Violeta → Celeste |
+| `solar.html` | `theme-solar` | Naranja → Amarillo |
+
+**Franja de estado del sistema** (`#system-strip`, poblada por `initSystemStrip()` en `dashboard-common.js`): una fila compacta con 3 puntos (Clima/Batería/Inversor) que consulta `/api/readings/latest`, `/api/battery/latest` y `/api/inverter/latest` al cargar cada página y cada 30s — permite ver de un vistazo si algún sensor dejó de reportar sin tener que navegar a su sección.
+
+Otros detalles: `:focus-visible` global para navegación por teclado, y `font-variant-numeric: tabular-nums` en los valores de tarjeta para que los dígitos no salten de ancho durante la animación de `animateValue()`.
