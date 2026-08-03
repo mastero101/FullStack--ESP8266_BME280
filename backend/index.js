@@ -451,7 +451,7 @@ function computeSohFromRows(rows, ratedAh) {
 
 app.get('/api/battery/soh', async (req, res) => {
     try {
-        const ratedAh = parseFloat(req.query.ratedAh) || 100;
+        const ratedAh = parseFloat(req.query.ratedAh) || 105;
         const days = Math.min(parseInt(req.query.days) || 30, 180);
 
         const result = await db.query(

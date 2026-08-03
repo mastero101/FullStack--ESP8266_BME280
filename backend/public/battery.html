@@ -163,7 +163,7 @@
                 <div class="form-group" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
                     <div style="flex: 1;">
                         <label>Capacidad (Ah)</label>
-                        <input type="number" id="batt-capacity-input" value="100" step="1" min="1">
+                        <input type="number" id="batt-capacity-input" value="105" step="1" min="1">
                     </div>
                     <div style="flex: 1;">
                         <label>Voltaje Nom. (V)</label>
@@ -1148,7 +1148,7 @@
                 document.getElementById('threshold-input').value = localStorage.getItem('battHighVoltThreshold') || 29.2;
                 document.getElementById('low-volt-threshold-input').value = localStorage.getItem('battLowVoltThreshold') || 22.0;
                 document.getElementById('curr-threshold-input').value = localStorage.getItem('battCurrThreshold') || 20.0;
-                document.getElementById('batt-capacity-input').value = localStorage.getItem('battCapacityAh') || 100;
+                document.getElementById('batt-capacity-input').value = localStorage.getItem('battCapacityAh') || 105;
                 document.getElementById('batt-nom-volt-input').value = localStorage.getItem('battNominalVolt') || 24;
                 document.getElementById('batt-full-volt-input').value = localStorage.getItem('battFullVolt') || 28.4;
                 document.getElementById('batt-empty-volt-input').value = localStorage.getItem('battEmptyVolt') || 22.0;
@@ -1288,7 +1288,7 @@
                     if (dischargedEl && stats.discharged_wh !== undefined) dischargedEl.innerText = stats.discharged_wh > 1000 ? (stats.discharged_wh/1000).toFixed(2) + ' kWh' : stats.discharged_wh.toFixed(1) + ' Wh';
 
                     const nomVolt = parseFloat(localStorage.getItem('battNominalVolt')) || 24.0;
-                    const capacityAh = parseFloat(localStorage.getItem('battCapacityAh')) || 100.0;
+                    const capacityAh = parseFloat(localStorage.getItem('battCapacityAh')) || 105.0;
                     const cyclesEl = document.getElementById(`stat-${prefix}-cycles`);
                     const spentAhEl = document.getElementById(`stat-${prefix}-spent-ah`);
                     
@@ -1382,7 +1382,7 @@
             if (!valEl) return;
 
             try {
-                const ratedAh = parseFloat(localStorage.getItem('battCapacityAh')) || 100;
+                const ratedAh = parseFloat(localStorage.getItem('battCapacityAh')) || 105;
                 const response = await fetch(`/api/battery/soh?ratedAh=${ratedAh}`);
                 const data = await response.json();
 
