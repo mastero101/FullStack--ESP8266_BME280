@@ -452,12 +452,18 @@ function computeSohFromRows(rows, ratedAh) {
 app.get('/api/battery/soh', async (req, res) => {
     try {
         const ratedAh = parseFloat(req.query.ratedAh) || 105;
-        const days = Math.min(parseInt(req.query.days) || 30, 180);
+        const days = Math.min(parseInt(req.query.days) || 90, 365);
 
+        // Subconsulta: si la ventana pedida tiene mas de 300k filas, quedarse
+        // con las MAS RECIENTES (DESC + LIMIT) y recien ahi ordenar ASC para
+        // el algoritmo. Hacer el LIMIT directamente en ASC descartaria las
+        // lecturas mas nuevas en vez de las mas viejas.
         const result = await db.query(
-            `SELECT voltage, current, soc, created_at FROM bms_readings
-             WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
-             ORDER BY created_at ASC LIMIT 100000`,
+            `SELECT * FROM (
+                SELECT voltage, current, soc, created_at FROM bms_readings
+                WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+                ORDER BY created_at DESC LIMIT 300000
+             ) recent ORDER BY created_at ASC`,
             [days]
         );
 
