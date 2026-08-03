@@ -761,6 +761,20 @@
                     <div class="stat-item">Neto Hoy: <b id="bms-daily-net">--</b></div>
                 </div>
             </div>
+
+            <div class="card" id="bms-soh-card">
+                <div class="card-label">
+                    <i data-lucide="heart-pulse" style="color: #34d399"></i> Salud de Batería (SoH)
+                </div>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="bms-soh-val" class="skeleton">--</span><span class="card-unit">%</span>
+                    </div>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item" id="bms-soh-detail" style="color: var(--text-muted); font-size: 0.75rem;">Estimando...</div>
+                </div>
+            </div>
         </div>
 
         <div class="chart-section" id="chart-container">
@@ -1358,7 +1372,33 @@
             
             toggleSettings();
             updateLatestCards(); // Aplicar inmediatamente
+            loadBatterySoh(); // La capacidad nominal cambió, recalcular SoH
             showToast('Ajustes guardados', 'success');
+        }
+
+        async function loadBatterySoh() {
+            const valEl = document.getElementById('bms-soh-val');
+            const detailEl = document.getElementById('bms-soh-detail');
+            if (!valEl) return;
+
+            try {
+                const ratedAh = parseFloat(localStorage.getItem('battCapacityAh')) || 100;
+                const response = await fetch(`/api/battery/soh?ratedAh=${ratedAh}`);
+                const data = await response.json();
+
+                if (data.soh_percent === null || data.soh_percent === undefined) {
+                    valEl.classList.remove('skeleton');
+                    valEl.textContent = '--';
+                    detailEl.textContent = 'Datos insuficientes (falta un ciclo de descarga amplio)';
+                    return;
+                }
+
+                animateValue(valEl, data.soh_percent, 1);
+                valEl.style.color = data.soh_percent >= 90 ? 'var(--success)' : (data.soh_percent >= 75 ? 'var(--warning)' : 'var(--secondary)');
+                detailEl.textContent = `≈${data.estimated_full_capacity_ah} Ah reales de ${data.rated_ah} Ah nominales · ${data.samples_used} ciclo(s) medido(s)`;
+            } catch (err) {
+                console.error('Error cargando SoH de batería:', err);
+            }
         }
 
         function updateMinMaxStats(readings) {
@@ -1945,6 +1985,8 @@
         initNav('/battery.html', 'Batería');
         initSystemStrip();
         setInterval(initSystemStrip, 30000);
+        loadBatterySoh();
+        setInterval(loadBatterySoh, 10 * 60000); // métrica lenta, no hace falta refrescar seguido
 
         // Initialize Lucide icons
         lucide.createIcons();

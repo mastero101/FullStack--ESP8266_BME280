@@ -375,6 +375,99 @@ app.get('/api/battery/stats', async (req, res) => {
     }
 });
 
+// GET estimated State of Health (SoH) del banco de batería
+//
+// El Daly BMS/bridge ESP32 no reporta capacidad de fábrica ni conteo de
+// ciclos (y el firmware no se toca en este proyecto), así que no hay un
+// valor de SoH nativo. Se estima por conteo de culombios: se buscan tramos
+// de descarga continua en bms_readings donde el SoC cae al menos
+// MIN_DELTA_SOC puntos, se integra la corriente (Ah) en ese tramo, y se
+// normaliza a "cuántos Ah representaría una descarga del 100%". La mediana
+// de esos tramos se compara contra la capacidad nominal (Ah) que el usuario
+// configura en Ajustes -> "Capacidad (Ah)" (ratedAh, mismo valor que ya usa
+// el cálculo de "Ah Gastados").
+function computeSohFromRows(rows, ratedAh) {
+    const MIN_DELTA_SOC = 15;      // % de caída de SoC para contar el tramo como válido
+    const MIN_DURATION_MIN = 5;    // duración mínima del tramo
+    const MAX_GAP_MIN = 15;        // corta el tramo si el bridge estuvo offline más de esto
+    const CURRENT_NOISE_A = 0.05;  // corriente por debajo de esto no se considera descarga real
+
+    const samples = [];
+    let run = null;
+
+    function closeRun() {
+        if (!run || run.rows.length < 2) { run = null; return; }
+        const first = run.rows[0];
+        const last = run.rows[run.rows.length - 1];
+        const socDelta = first.soc - last.soc;
+        const durationMin = (new Date(last.created_at) - new Date(first.created_at)) / 60000;
+
+        if (socDelta >= MIN_DELTA_SOC && durationMin >= MIN_DURATION_MIN) {
+            let ah = 0;
+            for (let i = 1; i < run.rows.length; i++) {
+                const a = run.rows[i - 1], b = run.rows[i];
+                const dtH = (new Date(b.created_at) - new Date(a.created_at)) / 3600000;
+                ah += ((Math.abs(a.current) + Math.abs(b.current)) / 2) * dtH;
+            }
+            const normalizedFullAh = ah / (socDelta / 100);
+            if (isFinite(normalizedFullAh) && normalizedFullAh > 0) {
+                samples.push({ normalizedFullAh, socDelta, durationMin, from: first.created_at, to: last.created_at });
+            }
+        }
+        run = null;
+    }
+
+    for (const row of rows) {
+        const discharging = row.current < -CURRENT_NOISE_A;
+        if (!discharging) { closeRun(); continue; }
+        if (run) {
+            const prev = run.rows[run.rows.length - 1];
+            const gapMin = (new Date(row.created_at) - new Date(prev.created_at)) / 60000;
+            if (gapMin > MAX_GAP_MIN) { closeRun(); run = { rows: [row] }; }
+            else run.rows.push(row);
+        } else {
+            run = { rows: [row] };
+        }
+    }
+    closeRun();
+
+    if (samples.length === 0) {
+        return { soh_percent: null, estimated_full_capacity_ah: null, samples_used: 0, rated_ah: ratedAh };
+    }
+
+    const caps = samples.map(s => s.normalizedFullAh).sort((a, b) => a - b);
+    const mid = Math.floor(caps.length / 2);
+    const median = caps.length % 2 ? caps[mid] : (caps[mid - 1] + caps[mid]) / 2;
+    const sohPercent = Math.max(0, Math.min(120, (median / ratedAh) * 100));
+
+    return {
+        soh_percent: Math.round(sohPercent * 10) / 10,
+        estimated_full_capacity_ah: Math.round(median * 100) / 100,
+        samples_used: samples.length,
+        rated_ah: ratedAh,
+        last_sample_at: samples[samples.length - 1].to
+    };
+}
+
+app.get('/api/battery/soh', async (req, res) => {
+    try {
+        const ratedAh = parseFloat(req.query.ratedAh) || 100;
+        const days = Math.min(parseInt(req.query.days) || 30, 180);
+
+        const result = await db.query(
+            `SELECT voltage, current, soc, created_at FROM bms_readings
+             WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+             ORDER BY created_at ASC LIMIT 100000`,
+            [days]
+        );
+
+        res.json(computeSohFromRows(result.rows, ratedAh));
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Database error" });
+    }
+});
+
 // GET historical battery readings
 app.get('/api/battery', async (req, res) => {
     try {
@@ -1031,4 +1124,4 @@ if (require.main === module) {
     setInterval(pruneOldReadings, 24 * 3600000); // 1 vez al dia
 }
 
-module.exports = { app, server };
+module.exports = { app, server, computeSohFromRows };
