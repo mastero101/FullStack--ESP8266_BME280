@@ -145,8 +145,10 @@ async function initSystemStrip() {
 }
 
 // --- Toast notifications ---
-// Cada pagina necesita <div id="toast-container" class="toast-container"></div>
-// una sola vez en el <body>.
+// Cada pagina necesita, una sola vez en el <body>:
+// <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
+// El role/aria-live hace que lectores de pantalla anuncien el mensaje solo
+// (sin interrumpir lo que se este leyendo, a diferencia de aria-live="assertive").
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     if (!container) return;

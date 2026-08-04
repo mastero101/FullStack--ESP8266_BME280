@@ -426,6 +426,21 @@
                     <div class="stat-item">Max: <b id="dp-max">--</b></div>
                 </div>
             </div>
+            <div class="card" id="batt-card" onclick="window.location.href='/battery.html'" style="cursor:pointer">
+                <div class="card-label">
+                    <i data-lucide="battery-charging" style="color: #34d399"></i> Batería (BMS)
+                </div>
+                <div class="card-body">
+                    <div class="card-value">
+                        <span id="batt-soc-val">--</span><span class="card-unit">%</span>
+                    </div>
+                    <span id="batt-status-badge" class="trend-badge" style="background:rgba(16, 185, 129, 0.1); color:#10b981; border:1px solid rgba(16, 185, 129, 0.2);">Offline</span>
+                </div>
+                <div class="sub-stats">
+                    <div class="stat-item">Voltaje: <b id="batt-volt-val">--</b>V</div>
+                    <div class="stat-item">Corriente: <b id="batt-curr-val">--</b>A</div>
+                </div>
+            </div>
             <div class="card" id="inv-card" onclick="window.location.href='/inverter'" style="cursor:pointer">
                 <div class="card-label">
                     <i data-lucide="zap" style="color: #fbbf24"></i> Inversor (PowMr)
@@ -487,7 +502,7 @@
         </div>
     </div>
 
-    <div id="toast-container" class="toast-container"></div>
+    <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
 
     <script>
         // Initialize Lucide Icons
@@ -1207,6 +1222,41 @@
             }
         });
 
+        function updateBatteryCard(data) {
+            if (!data || !data.created_at) return;
+            document.getElementById('batt-soc-val').innerText = Number(data.soc || 0).toFixed(0);
+            document.getElementById('batt-volt-val').innerText = Number(data.voltage || 0).toFixed(1);
+            document.getElementById('batt-curr-val').innerText = Number(data.current || 0).toFixed(1);
+
+            const badge = document.getElementById('batt-status-badge');
+            const diffMin = (Date.now() - new Date(data.created_at).getTime()) / 60000;
+
+            if (diffMin < 2) {
+                const current = Number(data.current || 0);
+                badge.innerText = current > 0.1 ? 'Cargando' : (current < -0.1 ? 'Descargando' : 'En reposo');
+                badge.style.background = 'rgba(16, 185, 129, 0.1)';
+                badge.style.color = '#10b981';
+            } else {
+                badge.innerText = 'Offline';
+                badge.style.background = 'rgba(239, 68, 68, 0.1)';
+                badge.style.color = '#ef4444';
+            }
+        }
+
+        async function loadBatterySummary() {
+            try {
+                const response = await fetch('/bms');
+                const data = await response.json();
+                updateBatteryCard(data);
+            } catch (err) {
+                console.error('Error cargando resumen de batería:', err);
+            }
+        }
+
+        socket.on('newBmsReading', (data) => {
+            updateBatteryCard(data);
+        });
+
         function updateInverterCard(data) {
             if (!data || !data.created_at) return;
             document.getElementById('inv-out-w').innerText = Number(data.out_w || 0).toFixed(0);
@@ -1410,9 +1460,11 @@
 
         initChart();
         fetchReadings();
+        loadBatterySummary();
         loadInverterSummary();
         initSystemStrip();
         setInterval(initSystemStrip, 30000);
+        setInterval(loadBatterySummary, 60000);
         // El polling ya no es necesario gracias a Socket.io,
         // pero mantenemos una verificación de estado cada 1 min por si acaso
         setInterval(() => {
